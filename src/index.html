@@ -242,6 +242,19 @@
     #scanResult { font-size: 13px; color: var(--muted); margin-top: 8px; }
     #scanResult summary { cursor: pointer; margin-top: 6px; }
 
+    #scanResult .engine {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 1px 6px;
+      margin-right: 6px;
+    }
+
+    #scanResult .note { margin-top: 5px; color: var(--repeat-border); }
+
     #scanResult pre {
       white-space: pre-wrap;
       word-break: break-all;
@@ -696,9 +709,15 @@
         ? '読み取れた項目: ' + filled.join('、')
         : '項目を特定できませんでした。読み取ったテキストを確認してください。';
 
-      $('scanResult').innerHTML = esc(msg) +
-        '<details><summary>読み取ったテキスト</summary><pre>' +
+      // どちらの方式で読んだかを出す。Gemini を入れたのに OCR のままなら
+      // キーの設定を疑える
+      var engine = res.engine === 'gemini' ? 'Gemini' : 'ドライブOCR';
+      var html = '<span class="engine">' + esc(engine) + '</span>' + esc(msg);
+      if (res.note) html += '<div class="note">' + esc(res.note) + '</div>';
+      html += '<details><summary>読み取ったテキスト</summary><pre>' +
         esc(res.rawText || '(空)') + '</pre></details>';
+
+      $('scanResult').innerHTML = html;
 
       if (res.registration) runLookup();
     }

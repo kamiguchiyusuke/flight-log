@@ -1,15 +1,21 @@
 /**
- * 画像から搭乗情報を読み取る。
+ * 画像から搭乗情報を読み取る。入口と、ドライブの OCR による読み取り。
  *
- * Google ドライブの OCR を使う。画像を Google ドキュメントに変換すると
- * OCR が走るという仕組みで、API キーも追加費用も要らない。
- * ただし読めるのは「文字」だけなので、対象は搭乗券や航空会社アプリの
- * 画面のように印字されたもの。機体の写真から登録記号を読むのは不得手。
+ * 読み取りには 2 通りある。GEMINI_API_KEY が設定されていれば Gemini を
+ * 使い、無いか失敗した場合はドライブの OCR に降りる（scanImage を見よ）。
+ *
+ * ドライブの OCR は画像を Google ドキュメントに変換すると走る仕組みで、
+ * API キーも追加費用も要らない。ただし読めるのは「文字」だけなので、
+ * 対象は搭乗券や航空会社アプリの画面のように印字されたものに限られる。
+ * Gemini 側の実装は Gemini.js にある。
  */
 
 /**
  * 画面から呼ぶ入口。data URL 形式の画像を受け取り、読み取れた項目を返す。
  * 見つからなかった項目は空文字で返し、画面側では空欄のままにする。
+ *
+ * GEMINI_API_KEY が設定されていれば Gemini を使い、失敗したらドライブの
+ * OCR に降りる。レート制限に当たっても読み取り自体は止まらない。
  */
 function scanImage(dataUrl) {
   var parsed = parseDataUrl_(dataUrl);
@@ -21,9 +27,24 @@ function scanImage(dataUrl) {
     'flight_scan'
   );
 
+  if (!geminiApiKey_()) return driveOcrScan_(blob);
+
+  try {
+    return geminiScan_(blob);
+  } catch (e) {
+    Logger.log('Gemini が使えないため OCR に切り替えます: ' + e.message);
+    var fields = driveOcrScan_(blob);
+    fields.note = 'Gemini を使えなかったため OCR で読み取りました（' + e.message + '）';
+    return fields;
+  }
+}
+
+/** ドライブの OCR で読み取る */
+function driveOcrScan_(blob) {
   var text = ocrImage_(blob);
   var fields = extractFlightFields_(text);
   fields.rawText = text;
+  fields.engine = 'ocr';
   return fields;
 }
 
