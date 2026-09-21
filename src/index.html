@@ -612,6 +612,10 @@
      * 両端は縮んで折り返せるようにし、余った幅を罫が吸う
      */
     .entry__leg {
+      /* 空港名の大きさ。飛行機の箱の高さもこれに追従させる */
+      --port-size: var(--text-base);
+      --port-line: 1.3;
+
       display: flex;
       align-items: baseline;
       gap: var(--space-xs);
@@ -622,21 +626,27 @@
 
     .entry__port {
       min-width: 0;
-      font-size: var(--text-base);
+      font-size: var(--port-size);
       font-weight: 600;
-      line-height: 1.3;
+      line-height: var(--port-line);
       overflow-wrap: anywhere;
     }
 
     .entry__port--arr { text-align: end; }
     .entry__port--none { font-weight: 400; color: var(--color-muted); }
 
+    /*
+     * 空港名は baseline で揃えているので、飛行機だけ align-self:center にすると
+     * 行が 2 段になったときに段の間へ落ちる。空港名 1 行分の高さの箱を作り、
+     * その中で中央に置けば、折り返しても 1 行目と同じ高さに留まる
+     */
     .entry__link {
       display: grid;
       place-items: center;
       flex: 1 1 var(--space-lg);
       min-width: var(--space-lg);
-      align-self: center;
+      align-self: start;
+      height: calc(var(--port-size) * var(--port-line));
       color: var(--color-rule-firm);
     }
 
@@ -876,7 +886,7 @@
      * 羽田(HND) 程度なら 1 行に収まるところまで落とす
      */
     @media (max-width: 22.5rem) {
-      .entry__port { font-size: var(--text-sm); }
+      .entry__leg { --port-size: var(--text-sm); }
       .entry__reg { font-size: var(--text-sm); }
     }
 
