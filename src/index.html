@@ -38,6 +38,13 @@
       --color-accent-warm: oklch(50% 0.18 30);
       --color-focus:       oklch(45% 0.15 250);
 
+      /*
+       * ロゴを刷る下地。明暗どちらのテーマでも明るいままにする。
+       * 航空会社のロゴは濃色・透過 PNG が多く、暗い地色に直接置くと沈んで
+       * 消える。明るい紙に刷って貼り付けたシールとして扱う。
+       */
+      --color-sticker:    oklch(98% 0.006 85);
+
       --font-display: "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
       --font-body:    "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
       --font-figure:  "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
@@ -524,6 +531,17 @@
       color: var(--color-ink);
     }
 
+    /* ロゴがある会社はこちら。符号と同じ枠の位置に収め、台帳の桁を崩さない */
+    .carrier-logo {
+      display: block;
+      width: 1.5rem;
+      height: 1.5rem;
+      object-fit: contain;
+      padding: var(--space-3xs);
+      border: var(--rule-hair) solid var(--color-rule);
+      background: var(--color-sticker);
+    }
+
     .entry__day {
       font-family: var(--font-figure);
       font-size: var(--text-sm);
@@ -780,6 +798,7 @@
       .withSuccessHandler(function (data) {
         if (!$('date').value) $('date').value = data.today;
         renderSuggestions(data.suggestions);
+        renderLogos(data.logos);
         renderLog(data.log);
       })
       .withFailureHandler(function (err) {
@@ -954,6 +973,7 @@
       google.script.run
         .withSuccessHandler(function (res) {
           setSaving(false);
+          renderLogos(res.logos);
           renderLog(res.log);
           renderSuggestions(res.suggestions);
           toast(res.registration + ' · ' + res.timesFlown + '回目として記入しました');
@@ -1118,6 +1138,15 @@
 
     /* ---------- 台帳の描画 ---------- */
 
+    /*
+     * 航空会社コード → ロゴ。行ごとではなくマップで受け取るので、
+     * 同じ会社が何行あっても画像データは 1 つで済む。
+     * ここに無い会社は 2 レターコードの枠で出る。
+     */
+    var airlineLogoMap = {};
+
+    function renderLogos(m) { if (m) airlineLogoMap = m; }
+
     function renderLog(rows) {
       var el = $('ledger');
       $('tabCount').textContent = (rows && rows.length) ? rows.length : '';
@@ -1173,7 +1202,14 @@
       var meta = [route ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
       var day = String(r.date || '').slice(5).replace('-', '.');
 
-      var mark = r.carrier ? '<span class="carrier">' + esc(r.carrier) + '</span>' : '';
+      var logo = r.carrier ? airlineLogoMap[r.carrier] : '';
+      var mark = '';
+      if (logo) {
+        mark = '<img class="carrier-logo" src="' + esc(logo) +
+          '" alt="' + esc(r.airline || r.carrier) + '" width="24" height="24" loading="lazy">';
+      } else if (r.carrier) {
+        mark = '<span class="carrier">' + esc(r.carrier) + '</span>';
+      }
 
       return '<div class="entry' + (alt ? ' entry--alt' : '') + '">' +
         '<div class="entry__mark">' + mark +

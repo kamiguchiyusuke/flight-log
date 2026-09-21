@@ -26,6 +26,12 @@
   --color-accent-warm: oklch(50% 0.18 30);
   --color-focus:       oklch(45% 0.15 250);
 
+  /*
+   * ロゴを刷る下地。明暗どちらのテーマでも明るいまま（dark 側で上書きしない）。
+   * 航空会社のロゴは濃色・透過 PNG が多く、暗い地色に直接置くと沈んで消える。
+   */
+  --color-sticker:    oklch(98% 0.006 85);
+
   --font-display: "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
   --font-body:    "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
   --font-figure:  "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;

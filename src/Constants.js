@@ -6,6 +6,7 @@
 /** シート名 */
 var SHEET_FLIGHTS = 'flights';
 var SHEET_AIRCRAFT = 'aircraft';
+var SHEET_AIRLINES = 'airlines';
 
 /** flights シートの列。この配列の順序がそのままシートの列順になる */
 var FLIGHT_COLUMNS = [
@@ -28,6 +29,26 @@ var AIRCRAFT_COLUMNS = [
   'airline',
   'note'
 ];
+
+/**
+ * airlines シート（ロゴのマスタ）の列。
+ * logo は data URI でも URL でも受け付ける。空なら台帳は 2 レターコードを出す。
+ */
+var AIRLINE_COLUMNS = [
+  'code',
+  'name',
+  'logo',
+  'note'
+];
+
+/**
+ * ロゴの取得元。{code} を IATA の 2 レターコードに差し替えて使う。
+ * 取得は一度きりで、結果は base64 にして airlines シートへ保存する。
+ * 以後この URL は参照しないので、配信元が止まっても表示は壊れない。
+ *
+ * 配信元を変えるときはここ 1 行だけ直す。
+ */
+var AIRLINE_LOGO_URL = 'https://images.kiwi.com/airlines/64/{code}.png';
 
 /**
  * 便名の頭2文字（IATA 航空会社コード）→ 航空会社名。

@@ -11,7 +11,8 @@
 function setup() {
   getSheet_(SHEET_FLIGHTS, FLIGHT_COLUMNS);
   getSheet_(SHEET_AIRCRAFT, AIRCRAFT_COLUMNS);
-  var msg = 'セットアップ完了: flights / aircraft シートを用意しました';
+  getSheet_(SHEET_AIRLINES, AIRLINE_COLUMNS);
+  var msg = 'セットアップ完了: flights / aircraft / airlines シートを用意しました';
   Logger.log(msg);
   return msg;
 }
@@ -116,6 +117,48 @@ function upsertAircraft_(obj) {
 
   sheet.appendRow(AIRCRAFT_COLUMNS.map(function (col) {
     if (col === 'registration') return reg;
+    return obj[col] || '';
+  }));
+}
+
+/**
+ * 航空会社のロゴマスタを upsert する。機体マスタと同じく「空欄だけ」を埋める。
+ *
+ * 注意: 「ロゴ列を空にした」＝この会社はコード表示でよい、という意思表示だが、
+ * この関数はそれを区別できない（空欄なら埋めてしまう）。
+ * その判断は呼び出し側が持つ。Logos.js の ensureAirlineLogo_() は
+ * 行が既にあれば何もしないので、一度消したロゴは復活しない。
+ */
+function upsertAirline_(obj) {
+  var code = String(obj.code || '').trim().toUpperCase();
+  if (!code) return;
+
+  var sheet = getSheet_(SHEET_AIRLINES, AIRLINE_COLUMNS);
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow >= 2) {
+    var codes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < codes.length; i++) {
+      if (String(codes[i][0] || '').trim().toUpperCase() !== code) continue;
+
+      var rowNum = i + 2;
+      var range = sheet.getRange(rowNum, 1, 1, AIRLINE_COLUMNS.length);
+      var current = range.getValues()[0];
+      var changed = false;
+      AIRLINE_COLUMNS.forEach(function (col, idx) {
+        var filled = String(current[idx] === null || current[idx] === undefined ? '' : current[idx]).trim();
+        if (!filled && obj[col]) {
+          current[idx] = obj[col];
+          changed = true;
+        }
+      });
+      if (changed) range.setValues([current]);
+      return;
+    }
+  }
+
+  sheet.appendRow(AIRLINE_COLUMNS.map(function (col) {
+    if (col === 'code') return code;
     return obj[col] || '';
   }));
 }

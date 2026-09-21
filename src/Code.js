@@ -18,8 +18,26 @@ function bootstrap() {
   return {
     suggestions: suggestions(),
     log: flightLog(),
+    logos: airlineLogos(),
     today: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')
   };
+}
+
+/**
+ * 航空会社コード → ロゴ の対応表。
+ *
+ * 行ごとではなくマップで返す。同じ会社が何行あっても base64 は 1 つで済み、
+ * 台帳が育っても送信量が増えない。
+ * ロゴが空の会社は含めない。含めないことが「コード表示でよい」の合図になる。
+ */
+function airlineLogos() {
+  var out = {};
+  readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).forEach(function (a) {
+    var code = String(a.code || '').trim().toUpperCase();
+    var logo = String(a.logo || '').trim();
+    if (code && logo) out[code] = logo;
+  });
+  return out;
 }
 
 /**
@@ -145,12 +163,22 @@ function saveFlight(payload) {
       airline: airline
     });
 
+    // 初めて乗る航空会社ならロゴを取りに行く。機体マスタと同じく
+    // 「空から育てる」。UrlFetchApp は同期なので、配信元が落ちていたり
+    // 遅かったりしても保存そのものは絶対に巻き込まないよう握り潰す
+    try {
+      ensureAirlineLogo_(carrierCode_(flightNo));
+    } catch (e) {
+      Logger.log('ロゴの取得を飛ばしました: ' + e.message);
+    }
+
     return {
       ok: true,
       id: id,
       registration: reg,
       timesFlown: before + 1,
       log: flightLog(),
+      logos: airlineLogos(),
       suggestions: suggestions()
     };
   } finally {
