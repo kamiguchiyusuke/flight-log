@@ -571,10 +571,14 @@
       gap: var(--space-sm);
       align-items: center;
       padding-block: var(--space-xs);
+
+      /* 空港名の大きさ。飛行機と型式の箱の高さもこれに追従させる */
+      --port-size: var(--text-md);
+      --port-line: 1.3;
       /*
        * 補足の行は空港名の下にぶら下がる。同じ高さを上にも履かせると
-       * 空港名が行の縦中央に来る。右端の型式にも同じ下駄を履かせて、
-       * 空港名と同じ高さから書き出す
+       * 空港名が行の縦中央に来る。行の中央はロゴと型式にも共通なので、
+       * これで行の要素がすべて同じ高さに並ぶ
        */
       --leg-offset: calc(var(--text-xs) * 1.55 + var(--space-2xs));
       border-bottom: var(--rule-hair) solid var(--color-rule);
@@ -624,10 +628,6 @@
      * 両端は縮んで折り返せるようにし、余った幅を罫が吸う
      */
     .entry__leg {
-      /* 空港名の大きさ。飛行機の箱の高さもこれに追従させる */
-      --port-size: var(--text-md);
-      --port-line: 1.3;
-
       /*
        * 左右を同じ幅の列にして、飛行機を必ず真ん中に置く。
        * flex で伸縮させると両側の空港名の長さで位置が動き、
@@ -685,7 +685,20 @@
        年の見出しが間に挟まるので、偶奇は JS 側で数える */
     .entry--alt { background: var(--color-paper-2); }
 
-    .entry__mark { display: grid; gap: var(--space-3xs); justify-items: start; }
+    /*
+     * 印も飛行機・型式と同じ作りにする。空港名 1 行分の高さの箱を
+     * 本文と同じ位置から起こし、その中で中央に置く。枠は箱より大きいので
+     * 上下にはみ出すが、はみ出しは行の高さを変えない。
+     * 行の中央に置くと、空港名が折り返した行だけ印が下がってしまう
+     */
+    .entry__mark {
+      display: grid;
+      justify-items: start;
+      align-content: center;
+      align-self: start;
+      margin-block-start: var(--leg-offset);
+      height: calc(var(--port-size) * var(--port-line));
+    }
 
     /*
      * 航空会社は 2 レターコードを枠で囲った符号として出す。
@@ -735,9 +748,17 @@
      * 本文と同じ大きさで置くと、390px で区間が折り返してしまう
      */
     .entry__craft {
-      display: block;
+      /*
+       * 飛行機と同じ作り。空港名 1 行分の高さの箱を本文と同じ位置から
+       * 起こし、その中で中央に置く。上端を揃えるだけだと文字の大きさの
+       * 差だけ上へずれ、行の中央に置くと空港名が折り返したとき段の間へ落ちる
+       */
+      display: grid;
+      align-content: center;
+      justify-items: end;
+      margin-block-start: var(--leg-offset);
+      height: calc(var(--port-size) * var(--port-line));
       text-align: end;
-      padding-block-start: var(--leg-offset);
       font-family: var(--font-figure);
       font-size: var(--text-sm);
       font-weight: 600;
@@ -902,7 +923,7 @@
      * 羽田(HND) 程度なら 1 行に収まるところまで落とす
      */
     @media (max-width: 22.5rem) {
-      .entry__leg { --port-size: var(--text-sm); }
+      .entry { --port-size: var(--text-sm); }
       .entry__craft { font-size: var(--text-xs); }
     }
 
