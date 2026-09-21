@@ -112,6 +112,18 @@
 
     input.upper { text-transform: uppercase; }
 
+    /* iOS の Safari は input[type=date] に固有の幅を持たせるため、
+       width:100% が効かずカードからはみ出す。appearance を落として
+       最小幅の制約を外す。値の寄せ方も他の欄に合わせる */
+    input[type="date"] {
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+      min-width: 0;
+      max-width: 100%;
+      text-align: left;
+    }
+
     .route {
       display: grid;
       grid-template-columns: 1fr 32px 1fr;
