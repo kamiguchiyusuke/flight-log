@@ -613,7 +613,7 @@
      */
     .entry__leg {
       /* 空港名の大きさ。飛行機の箱の高さもこれに追従させる */
-      --port-size: var(--text-base);
+      --port-size: var(--text-md);
       --port-line: 1.3;
 
       /*
@@ -708,6 +708,8 @@
     .entry__meta {
       display: block;
       min-width: 0;
+      /* 飛行機は leg の中央にあるので、中央寄せにすればその真下に来る */
+      text-align: center;
       overflow-wrap: anywhere;
       font-family: var(--font-figure);
       font-size: var(--text-xs);
