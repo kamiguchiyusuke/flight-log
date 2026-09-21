@@ -348,6 +348,7 @@
     .log .left { min-width: 0; }
     .log .sub { font-size: 12px; color: var(--muted); }
     .log .route-text { font-weight: 600; overflow-wrap: anywhere; }
+    .log .route-text.placeholder { font-weight: 400; color: var(--muted); }
     .log .right { text-align: right; flex-shrink: 0; }
     .log .reg {
       font-variant-numeric: tabular-nums;
@@ -816,12 +817,21 @@
     function logRow(r) {
       var dep = r.depLabel || r.dep;
       var arr = r.arrLabel || r.arr;
-      var route = (dep || arr) ? esc(dep) + ' → ' + esc(arr) : '';
-      var sub = [r.date, r.flightNo].filter(Boolean).map(esc).join(' · ');
+      // 片側だけ入力された記録もあるので、そのときは矢印を出さない
+      var route = (dep && arr) ? dep + ' → ' + arr : (dep || arr);
+
+      // 区間は必須にしていないので空の記録もありうる。
+      // 空行にせず、出せるものを主役の行に繰り上げる
+      var head = route || r.flightNo || '区間未入力';
+      var headClass = (route || r.flightNo) ? '' : ' placeholder';
+
+      // 主役の行に繰り上げた便名を下でも繰り返さない
+      var sub = [r.date, route ? r.flightNo : ''].filter(Boolean).join(' · ');
+
       return '<div class="log">' +
         '<div class="left">' +
-          '<div class="route-text">' + route + '</div>' +
-          '<div class="sub">' + sub + '</div>' +
+          '<div class="route-text' + headClass + '">' + esc(head) + '</div>' +
+          '<div class="sub">' + esc(sub) + '</div>' +
         '</div>' +
         '<div class="right">' +
           '<div class="reg">' + esc(r.registration) + '</div>' +
