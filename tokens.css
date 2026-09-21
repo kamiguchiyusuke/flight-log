@@ -1,0 +1,80 @@
+/* Hallmark · design tokens — 搭乗機材ログ
+ * theme: custom "aged ledger stock, blue-black ink, red rule"
+ * axes: light paper / classical-serif display / warm accent
+ *
+ * このファイルは持ち出し用の控え。GAS の HtmlService は外部 CSS を
+ * 配信できないため、src/index.html は同じ値をインラインで持っている。
+ * 値を変えるときは両方そろえること。
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* 紙。温かいクリーム地(hue 85)を基準に、中間色すべてをそこへ寄せる */
+  --color-paper:      oklch(96.5% 0.015 85);
+  --color-paper-2:    oklch(93.5% 0.019 82);
+  --color-paper-3:    oklch(90%   0.022 82);
+  --color-rule:       oklch(81%   0.020 80);
+  --color-rule-firm:  oklch(62%   0.025 78);
+  --color-muted:      oklch(48%   0.016 75);
+  --color-ink:        oklch(23%   0.020 70);
+
+  /* 赤は「注意・訂正・合計」。台帳で赤が担う役割をそのまま使う */
+  --color-accent:     oklch(47% 0.17 30);
+  --color-accent-2:   oklch(45% 0.12 250);
+  --color-focus:      oklch(47% 0.17 30);
+
+  --font-display: "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  --font-body:    "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+  --font-figure:  "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --space-3xs: 0.125rem;
+  --space-2xs: 0.25rem;
+  --space-xs:  0.5rem;
+  --space-sm:  0.75rem;
+  --space-md:  1rem;
+  --space-lg:  1.5rem;
+  --space-xl:  2.5rem;
+  --space-2xl: 4rem;
+
+  --text-xs:   0.6875rem;
+  --text-sm:   0.8125rem;
+  --text-base: 1rem;
+  --text-md:   1.125rem;
+  --text-lg:   1.375rem;
+  --text-xl:   1.75rem;
+
+  --rule-hair: 1px;
+  --rule-firm: 2px;
+  --page-gutter: clamp(0.875rem, 4vw, 2rem);
+
+  /* 台帳に角丸は無い。0 に固定することがこの設計の背骨 */
+  --radius: 0;
+
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in:     cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-toast: 500;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    /* 革表紙の記録簿を灯りの下で開いた状態。色相は動かさず明度と彩度だけ動かす */
+    --color-paper:      oklch(16%   0.014 70);
+    --color-paper-2:    oklch(19.5% 0.016 72);
+    --color-paper-3:    oklch(23%   0.018 74);
+    --color-rule:       oklch(33%   0.016 76);
+    --color-rule-firm:  oklch(52%   0.020 78);
+    --color-muted:      oklch(69%   0.014 80);
+    --color-ink:        oklch(93%   0.012 84);
+
+    --color-accent:     oklch(65% 0.15 32);
+    --color-accent-2:   oklch(68% 0.10 250);
+    --color-focus:      oklch(65% 0.15 32);
+  }
+}
