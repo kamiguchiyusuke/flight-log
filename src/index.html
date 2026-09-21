@@ -226,6 +226,19 @@
       border-radius: 8px;
     }
 
+    /* 貼り付けの案内はマウスのある端末にだけ出す。スマホには Ctrl+V が無い */
+    .paste-hint { display: none; }
+
+    @media (hover: hover) and (pointer: fine) {
+      .paste-hint {
+        display: block;
+        font-size: 12px;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 7px;
+      }
+    }
+
     #scanResult { font-size: 13px; color: var(--muted); margin-top: 8px; }
     #scanResult summary { cursor: pointer; margin-top: 6px; }
 
@@ -325,6 +338,7 @@
           <button type="button" id="scanBtn" class="ghost">📷 画像から読み取る</button>
           <input type="file" id="photo" accept="image/*" tabindex="-1"
                  style="position:absolute;width:0;height:0;opacity:0">
+          <div class="paste-hint">画像を Ctrl+V で貼り付けても読み取れます</div>
           <div id="scanResult"></div>
         </div>
 
@@ -581,12 +595,46 @@
     var dateTouched = false;
     $('date').addEventListener('change', function () { dateTouched = true; });
 
+    var scanning = false;
+
     $('scanBtn').addEventListener('click', function () { $('photo').click(); });
 
     $('photo').addEventListener('change', function () {
       var file = this.files && this.files[0];
       this.value = '';   // 同じ画像をもう一度選べるようにする
-      if (!file) return;
+      scanFile(file);
+    });
+
+    // 画像の貼り付け。Snipping Tool で撮った直後にそのまま流せる
+    document.addEventListener('paste', function (e) {
+      var file = imageFromClipboard(e.clipboardData);
+      if (!file) return;   // 画像以外は通常の貼り付けに任せる
+      e.preventDefault();
+      scanFile(file);
+    });
+
+    /** クリップボードから画像を1つ取り出す。無ければ null */
+    function imageFromClipboard(data) {
+      if (!data) return null;
+
+      var items = data.items || [];
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file' && items[i].type.indexOf('image/') === 0) {
+          return items[i].getAsFile();
+        }
+      }
+
+      // items を持たない環境向けの保険
+      var files = data.files || [];
+      for (var j = 0; j < files.length; j++) {
+        if (files[j].type.indexOf('image/') === 0) return files[j];
+      }
+      return null;
+    }
+
+    /** ファイル選択でも貼り付けでも、読み取りはここに集約する */
+    function scanFile(file) {
+      if (!file || scanning) return;
 
       setScanning(true);
       downscale(file, 1600, function (dataUrl) {
@@ -601,7 +649,7 @@
         setScanning(false);
         toast(msg, true);
       });
-    });
+    }
 
     /**
      * 画像を縮小して data URL にする。
@@ -662,6 +710,7 @@
     }
 
     function setScanning(on) {
+      scanning = on;
       $('scanBtn').disabled = on;
       $('scanBtn').textContent = on ? '読み取り中…' : '📷 画像から読み取る';
       if (on) $('scanResult').textContent = '';
