@@ -569,7 +569,7 @@
       display: grid;
       grid-template-columns: 3.25rem minmax(0, 1fr);
       gap: var(--space-sm);
-      padding-block: var(--space-sm);
+      padding-block: var(--space-md);
       border-bottom: var(--rule-hair) solid var(--color-rule);
     }
 
@@ -600,14 +600,43 @@
     .entry__body {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
-      gap: var(--space-sm);
+      gap: var(--space-md);
       align-items: start;
     }
 
-    .entry__main { min-width: 0; }
+    .entry__main { min-width: 0; display: grid; gap: var(--space-2xs); }
+
+    /*
+     * 出発と到着を列の両端へ振り、間を細い罫で結ぶ。
+     * 空港名は長さがまちまち（羽田(HND) と 台北桃園(TPE)）なので、
+     * 両端は縮んで折り返せるようにし、余った幅を罫が吸う
+     */
+    .entry__leg {
+      display: flex;
+      align-items: baseline;
+      gap: var(--space-xs);
+    }
+
+    .entry__port {
+      min-width: 0;
+      font-size: var(--text-base);
+      font-weight: 600;
+      line-height: 1.3;
+      overflow-wrap: anywhere;
+    }
+
+    .entry__port--arr { text-align: end; }
+    .entry__port--none { font-weight: 400; color: var(--color-muted); }
+
+    .entry__link {
+      flex: 1 1 var(--space-md);
+      min-width: var(--space-md);
+      align-self: center;
+      border-top: var(--rule-hair) solid var(--color-rule-firm);
+    }
 
     @media (hover: hover) and (pointer: fine) {
-      button.entry__body:hover .entry__route {
+      button.entry__body:hover .entry__port {
         text-decoration: underline;
         text-underline-offset: 3px;
       }
@@ -640,8 +669,8 @@
     /* ロゴがある会社はこちら。符号と同じ枠の位置に収め、台帳の桁を崩さない */
     .carrier-logo {
       display: block;
-      width: 1.5rem;
-      height: 1.5rem;
+      width: 1.75rem;
+      height: 1.75rem;
       object-fit: contain;
       padding: var(--space-3xs);
       border: var(--rule-hair) solid var(--color-rule);
@@ -655,16 +684,6 @@
       color: var(--color-muted);
     }
 
-    .entry__route {
-      display: block;
-      font-size: var(--text-sm);
-      font-weight: 600;
-      overflow-wrap: anywhere;
-      min-width: 0;
-    }
-
-    .entry__route--none { font-weight: 400; color: var(--color-muted); }
-
     .entry__meta {
       display: block;
       font-family: var(--font-figure);
@@ -677,8 +696,9 @@
       display: block;
       text-align: end;
       font-family: var(--font-figure);
-      font-size: var(--text-sm);
+      font-size: var(--text-base);
       font-weight: 600;
+      line-height: 1.3;
       white-space: nowrap;
     }
 
@@ -1508,14 +1528,22 @@
     function logRow(r, alt) {
       var dep = r.depLabel || r.dep;
       var arr = r.arrLabel || r.arr;
-      // 片側だけ入力された記録もあるので、そのときは矢印を出さない
-      var route = (dep && arr) ? dep + ' → ' + arr : (dep || arr);
+      var hasRoute = !!(dep || arr);
 
-      // 区間は必須だが、必須にする前の記録が残っている。空行にせず繰り上げる
-      var head = route || r.flightNo || '区間の記載なし';
-      var headClass = (route || r.flightNo) ? '' : ' entry__route--none';
+      var leg;
+      if (dep && arr) {
+        // 両端に振り、間を罫で結ぶ
+        leg = '<span class="entry__port">' + esc(dep) + '</span>' +
+          '<span class="entry__link" aria-hidden="true"></span>' +
+          '<span class="entry__port entry__port--arr">' + esc(arr) + '</span>';
+      } else {
+        // 片側だけ、あるいは区間を必須にする前の記録。空行にせず繰り上げる
+        var only = dep || arr || r.flightNo || '区間の記載なし';
+        var cls = (hasRoute || r.flightNo) ? 'entry__port' : 'entry__port entry__port--none';
+        leg = '<span class="' + cls + '">' + esc(only) + '</span>';
+      }
 
-      var meta = [route ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
+      var meta = [hasRoute ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
       var day = '<span class="entry__day">' +
         esc(String(r.date || '').slice(5).replace('-', '.')) + '</span>';
 
@@ -1523,7 +1551,7 @@
       var badge = '';
       if (logo) {
         badge = '<img class="carrier-logo" src="' + esc(logo) +
-          '" alt="' + esc(r.airline || r.carrier) + '" width="24" height="24" loading="lazy">';
+          '" alt="' + esc(r.airline || r.carrier) + '" width="28" height="28" loading="lazy">';
       } else if (r.carrier) {
         badge = '<span class="carrier">' + esc(r.carrier) + '</span>';
       }
@@ -1535,7 +1563,7 @@
         '<button type="button" class="entry__body" data-id="' + esc(r.id) +
           '" aria-label="この記録を直す">' +
           '<span class="entry__main">' +
-            '<span class="entry__route' + headClass + '">' + esc(head) + '</span>' +
+            '<span class="entry__leg">' + leg + '</span>' +
             '<span class="entry__meta">' + esc(meta) + '</span>' +
           '</span>' +
           '<span class="entry__reg">' + esc(r.registration) +
