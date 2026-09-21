@@ -215,18 +215,11 @@
       border-bottom: var(--rule-hair) solid var(--color-rule);
     }
 
-    /* 区間は 1 本の罫の中に 2 欄。実物の書式と同じく矢印で結ぶ */
+    /* 区間は 1 本の罫の中に 2 欄 */
     .row--split {
-      grid-template-columns: 1fr auto 1fr;
+      grid-template-columns: 1fr 1fr;
       align-items: end;
       column-gap: var(--space-sm);
-    }
-
-    .row__arrow {
-      padding-bottom: var(--space-xs);
-      color: var(--color-rule-firm);
-      font-size: var(--text-md);
-      line-height: 1;
     }
 
     .cell { display: grid; gap: var(--space-3xs); min-width: 0; }
@@ -1031,7 +1024,6 @@
             <input class="fld fld--fig fld--upper" id="dep" placeholder="HND" maxlength="4" required
                    autocapitalize="characters" autocorrect="off" spellcheck="false">
           </div>
-          <span class="row__arrow" aria-hidden="true">→</span>
           <div class="cell">
             <label class="lab" for="arr">到着<span class="lab__lat">TO</span></label>
             <input class="fld fld--fig fld--upper" id="arr" placeholder="ITM" maxlength="4" required
