@@ -100,6 +100,29 @@ function updateFlight_(id, obj) {
   return false;
 }
 
+/**
+ * フライトを 1 行消す。見つからなければ false。
+ *
+ * 搭乗回数は flights から都度数えているので、消せば回数も自動で減る。
+ * aircraft の行は残すが、それでよい。あれは「登録記号 → 型式・航空会社」の
+ * マスタであって、搭乗の記録ではない。
+ */
+function deleteFlight_(id) {
+  var sheet = getSheet_(SHEET_FLIGHTS, FLIGHT_COLUMNS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return false;
+
+  var target = Number(id);
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+
+  for (var i = 0; i < ids.length; i++) {
+    if (Number(ids[i][0]) !== target) continue;
+    sheet.deleteRow(i + 2);
+    return true;
+  }
+  return false;
+}
+
 /** flights の id 最大値 + 1 */
 function nextId_(sheet) {
   var lastRow = sheet.getLastRow();

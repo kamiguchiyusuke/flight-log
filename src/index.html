@@ -706,6 +706,39 @@
 
     .editing[data-show="true"] { display: flex; }
 
+    .editing__acts { display: flex; gap: var(--space-md); white-space: nowrap; }
+
+    /*
+     * 削除は 2 段階。1 回目で「本当に削除」に変わり、もう一度押すと消える。
+     * ネイティブの confirm() は GAS のサンドボックス iframe で出ない恐れがあり、
+     * 「押しても何も起きない」が最悪なので使わない。
+     */
+    .editing__del {
+      appearance: none;
+      margin: 0;
+      padding: var(--space-3xs) 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      font-weight: 600;
+      color: var(--color-accent-warm);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .editing__del[data-arm="true"] {
+      padding-inline: var(--space-xs);
+      border: var(--rule-firm) solid var(--color-accent-warm);
+      text-decoration: none;
+    }
+
+    .editing__del:focus-visible {
+      outline: var(--rule-firm) solid var(--color-focus);
+      outline-offset: 2px;
+    }
+
     .editing__cancel {
       appearance: none;
       margin: 0;
@@ -834,7 +867,10 @@
 
         <div class="editing" id="editing" data-show="false">
           <span id="editingLabel"></span>
-          <button type="button" class="editing__cancel" id="editCancel">やめる</button>
+          <span class="editing__acts">
+            <button type="button" class="editing__cancel" id="editCancel">やめる</button>
+            <button type="button" class="editing__del" id="editDelete">削除</button>
+          </span>
         </div>
 
         <div class="affix">
@@ -1260,6 +1296,7 @@
       hideSuggest();
       clearFieldErrors();
       editingId = 0;
+      disarmDelete();
       $('editing').setAttribute('data-show', 'false');
       submitBtn.textContent = '記入する';
       // 搭乗日は残す。同じ日に複数レグ乗ることがあるため
@@ -1525,6 +1562,53 @@
     });
 
     $('editCancel').addEventListener('click', resetForm);
+
+    /*
+     * 削除は 2 段階。1 回目は身構えるだけで、5 秒触らなければ元に戻る。
+     * 消えた記録は戻せないので、1 タップで消えないようにする。
+     */
+    var deleteArmTimer = null;
+
+    function disarmDelete() {
+      clearTimeout(deleteArmTimer);
+      var btn = $('editDelete');
+      btn.removeAttribute('data-arm');
+      btn.textContent = '削除';
+    }
+
+    $('editDelete').addEventListener('click', function () {
+      if (!editingId) return;
+      var btn = $('editDelete');
+
+      if (btn.getAttribute('data-arm') !== 'true') {
+        btn.setAttribute('data-arm', 'true');
+        btn.textContent = '本当に削除する';
+        clearTimeout(deleteArmTimer);
+        deleteArmTimer = setTimeout(disarmDelete, 5000);
+        return;
+      }
+
+      var id = editingId;
+      disarmDelete();
+      btn.disabled = true;
+      toast('削除しています…');
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          btn.disabled = false;
+          renderLogos(res.logos);
+          renderLog(res.log);
+          renderSuggestions(res.suggestions);
+          resetForm();
+          switchTab('panel-log');
+          toast('記録を 1 件削除しました');
+        })
+        .withFailureHandler(function (err) {
+          btn.disabled = false;
+          toast(errorText(err), true);
+        })
+        .deleteFlight(id);
+    });
 
     /** 台帳の行を記入欄へ引き写して編集に入る。フォームはそのまま使い回す */
     function startEdit(id) {

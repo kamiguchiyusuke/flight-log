@@ -226,6 +226,33 @@ function saveFlight(payload) {
 }
 
 /**
+ * 記録を 1 件消す。台帳からその記録を開いて削除したときに呼ぶ。
+ *
+ * 戻り値は saveFlight と同じ顔ぶれ。画面はこれをそのまま流し込めば
+ * 台帳・候補・ロゴが一度に描き変わる。
+ */
+function deleteFlight(id) {
+  var target = Number(id) || 0;
+  if (!target) throw new Error('消す記録が指定されていません');
+
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(10000);
+  try {
+    if (!deleteFlight_(target)) throw new Error('消す記録が見つかりませんでした');
+
+    return {
+      ok: true,
+      id: target,
+      log: flightLog(),
+      logos: airlineLogos(),
+      suggestions: suggestions()
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
  * 航空会社名 → コード の対応表。画面が便名なしでもコードを出せるようにする。
  * 32 件なので送っても 2KB 程度。
  */
