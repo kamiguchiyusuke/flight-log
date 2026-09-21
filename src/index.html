@@ -524,6 +524,17 @@
       margin-inline-end: var(--space-2xs);
     }
 
+    /*
+     * 行が押せることの案内。スマホには hover が無く、行がただの文字に見える。
+     * 押せると分かる手がかりがどこにも無かった
+     */
+    .ledger__hint {
+      margin: 0 0 var(--space-sm);
+      font-size: var(--text-xs);
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+    }
+
     .ledger__head {
       display: grid;
       grid-template-columns: 3.25rem minmax(0, 1fr) auto;
@@ -898,6 +909,7 @@
 
     <section id="panel-log" class="panel" role="tabpanel" aria-labelledby="tab-log">
       <div class="tally" id="tally"></div>
+      <p class="ledger__hint" id="ledgerHint" hidden>行をタップすると記入欄で直せます</p>
       <div class="ledger__head" aria-hidden="true">
         <span>DATE</span><span>ROUTE</span><span>AIRFRAME</span>
       </div>
@@ -1420,12 +1432,14 @@
         el.innerHTML = '<p class="empty">まだ記入がありません</p>';
         $('tally').innerHTML = '';
         $('colophon').innerHTML = '';
+        $('ledgerHint').hidden = true;
         return;
       }
 
       var regs = {};
       rows.forEach(function (r) { if (r.registration) regs[r.registration] = true; });
 
+      $('ledgerHint').hidden = false;
       $('tally').innerHTML =
         '<span><span class="tally__n">' + rows.length + '</span>FLIGHTS</span>' +
         '<span><span class="tally__n">' + Object.keys(regs).length + '</span>AIRFRAMES</span>';
