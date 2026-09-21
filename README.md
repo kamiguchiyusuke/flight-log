@@ -12,7 +12,8 @@ src/
 ├── Constants.js      シート名・列定義・航空会社コード表
 ├── Sheets.js         スプレッドシートへのアクセス層
 ├── Code.js           doGet と画面から呼ぶ API
-└── index.html        スマホ用の画面（HTML/CSS/JS 一体）
+├── index.html        スマホ用の画面（HTML/CSS/JS 一体）
+└── DevSeed.js        動作確認用のサンプルデータ投入（本運用前に削除してよい）
 ```
 
 データはスプレッドシートの 2 シートに入る。
@@ -33,6 +34,7 @@ src/
    - `Sheets.gs` ← `src/Sheets.js`（＋ボタン > スクリプト）
    - `Constants.gs` ← `src/Constants.js`（＋ボタン > スクリプト）
    - `index.html` ← `src/index.html`（＋ボタン > HTML）
+   - `DevSeed.gs` ← `src/DevSeed.js`（動作確認用。不要なら貼らなくてよい）
    - 最初からある `コード.gs` は `Code.gs` にリネームして中身を差し替えればよい
 4. 関数の選択欄で `setup` を選び **実行**。初回は承認ダイアログが出るので許可する
    - `flights` と `aircraft` シートが生成される
@@ -79,6 +81,20 @@ clasp login
 ```
 
 以降は `clasp push` で反映される。`.clasp.json` は `.gitignore` 済み。
+
+## サンプルデータ（動作確認用）
+
+`src/DevSeed.js` に動作確認用のデータ投入がある。GAS 上では `DevSeed.gs` として貼る。
+
+| 関数 | 用途 |
+|---|---|
+| `seedSampleData()` | 15件のサンプル搭乗履歴を投入する。同じ機体に 2〜3 回乗った履歴を混ぜてあるので、重複判定の見え方を確認できる |
+| `clearAllData()` | `flights` と `aircraft` を空にする（ヘッダは残る）。誤実行を防ぐため、関数内の `CONFIRM` を `true` に書き換えないと動かない |
+
+`seedSampleData()` は flights に既にデータがあると何もしない。入れ直すには先に `clearAllData()` を実行する。
+
+登録記号はそれらしく作ったサンプルで、実在の機体とは限らない。
+本運用を始めるときは `clearAllData()` でデータを消し、`DevSeed.gs` ごと削除してよい。
 
 ## 今後やること
 
