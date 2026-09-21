@@ -134,6 +134,8 @@
       max-height: 244px;
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
+      /* iOS でリスト内を縦スクロールできるようにする */
+      touch-action: pan-y;
       background: var(--card);
       border: 1px solid var(--accent);
       border-radius: 8px;
@@ -475,6 +477,7 @@
     });
 
     function switchTab(panelId) {
+      hideSuggest();
       Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
         t.classList.toggle('active', t.getAttribute('data-panel') === panelId);
       });
@@ -631,6 +634,7 @@
     }
 
     function resetForm() {
+      hideSuggest();
       // 搭乗日は残す。同じ日に複数レグ乗ることがあるため
       ['flightNo', 'dep', 'arr', 'registration', 'aircraftType', 'airline', 'note'].forEach(function (id) {
         $(id).value = '';
@@ -638,7 +642,10 @@
       lastLookedUp = '';
       setBadge('', '');
       $('scanResult').innerHTML = '';
+      // 保存直後に候補が勝手に開かないよう、フォーカス移動の間だけ抑止する
+      suppressSuggest = true;
       $('flightNo').focus();
+      suppressSuggest = false;
     }
 
     /* ---------- 画像から読み取る ---------- */
@@ -901,8 +908,9 @@
     }
 
     /**
-     * 候補のタップ。click を待つと先に blur が走って候補が消えるので、
-     * mousedown / touchstart で拾って preventDefault する。
+     * 候補の選択。click で拾うのが肝心で、touchstart で拾うと指が触れた
+     * 瞬間に確定してしまい、リストをスクロールすることもできなくなる。
+     * click なら指が動いたとき（＝スクロール）は発火しない。
      */
     function pickSuggest(e) {
       if (!suggestInput) return;
@@ -913,7 +921,6 @@
       }
       if (!node || node === suggestEl) return;
 
-      e.preventDefault();
       var input = suggestInput;
       input.value = node.getAttribute('data-value');
       hideSuggest();
@@ -926,17 +933,30 @@
       suppressSuggest = false;
     }
 
-    suggestEl.addEventListener('mousedown', pickSuggest);
-    suggestEl.addEventListener('touchstart', pickSuggest, { passive: false });
+    /**
+     * 候補の外側を触ったら閉じる。
+     * blur で閉じるとリストをスクロールしただけで消えてしまうので、
+     * 「どこを触ったか」で判断する。ここでは preventDefault しない。
+     */
+    function hideIfOutside(e) {
+      if (!suggestInput) return;
+
+      var node = e.target;
+      while (node) {
+        if (node === suggestEl || node === suggestInput) return;
+        node = node.parentNode;
+      }
+      hideSuggest();
+    }
+
+    suggestEl.addEventListener('click', pickSuggest);
+    document.addEventListener('mousedown', hideIfOutside);
+    document.addEventListener('touchstart', hideIfOutside, { passive: true });
 
     Object.keys(SUGGEST_SOURCE).forEach(function (id) {
       var el = $(id);
-      el.addEventListener('focus', function () { showSuggest(el); });
+      el.addEventListener('focus', function () { if (!suppressSuggest) showSuggest(el); });
       el.addEventListener('input', function () { if (!suppressSuggest) showSuggest(el); });
-      el.addEventListener('blur', function () {
-        // 別の欄へ移ったときに、そちらの候補まで消さないよう持ち主を確認する
-        setTimeout(function () { if (suggestInput === el) hideSuggest(); }, 150);
-      });
     });
 
     /* ---------- ユーティリティ ---------- */
