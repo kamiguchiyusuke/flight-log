@@ -58,7 +58,14 @@ function lookupAircraft(registration) {
     type: (master && master.aircraft_type) || (last && last.type) || '',
     airline: (master && master.airline) || (last && last.airline) || '',
     timesFlown: flights.length,
-    lastFlight: last ? { date: last.date, flightNo: last.flightNo, dep: last.dep, arr: last.arr } : null
+    lastFlight: last ? {
+      date: last.date,
+      flightNo: last.flightNo,
+      dep: last.dep,
+      arr: last.arr,
+      depLabel: airportLabel_(last.dep),
+      arrLabel: airportLabel_(last.arr)
+    } : null
   };
 }
 
@@ -156,6 +163,8 @@ function recentFlights(limit) {
         airline: String(f.airline || ''),
         dep: String(f.dep || ''),
         arr: String(f.arr || ''),
+        depLabel: airportLabel_(f.dep),
+        arrLabel: airportLabel_(f.arr),
         type: String(f.aircraft_type || ''),
         registration: String(f.registration || '')
       };
@@ -175,7 +184,7 @@ function suggestions() {
 
   return {
     flightNos: uniqSorted_(pick(flights, 'flight_no')),
-    airports: uniqSorted_(pick(flights, 'dep').concat(pick(flights, 'arr'))),
+    airports: airportOptions_(pick(flights, 'dep').concat(pick(flights, 'arr'))),
     types: uniqSorted_(pick(flights, 'aircraft_type').concat(pick(master, 'aircraft_type'))),
     airlines: uniqSorted_(pick(flights, 'airline').concat(pick(master, 'airline'))),
     registrations: uniqSorted_(pick(master, 'registration').concat(pick(flights, 'registration')))
@@ -205,4 +214,32 @@ function airlineFromFlightNo_(flightNo) {
   var m = normalizeFlightNo_(flightNo).match(/^([A-Z0-9]{2})\d/);
   if (!m) return '';
   return AIRLINE_CODES[m[1]] || '';
+}
+
+/** 空港コードを「羽田(HND)」形式にする。対照表にないコードはそのまま返す */
+function airportLabel_(code) {
+  var c = String(code === null || code === undefined ? '' : code).trim().toUpperCase();
+  if (!c) return '';
+  var name = AIRPORT_NAMES[c];
+  return name ? name + '(' + c + ')' : c;
+}
+
+/**
+ * 空港の入力候補。過去に使ったコードを先頭に、続けて対照表の全空港を並べる。
+ * 初めて行く空港でもサジェストが効くようにするため、過去の入力だけに絞らない。
+ */
+function airportOptions_(usedCodes) {
+  var seen = {};
+  var out = [];
+
+  var push = function (code) {
+    var c = String(code === null || code === undefined ? '' : code).trim().toUpperCase();
+    if (!c || seen[c]) return;
+    seen[c] = true;
+    out.push({ code: c, name: AIRPORT_NAMES[c] || '' });
+  };
+
+  uniqSorted_(usedCodes).forEach(push);
+  Object.keys(AIRPORT_NAMES).sort().forEach(push);
+  return out;
 }

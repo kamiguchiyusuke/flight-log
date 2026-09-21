@@ -53,7 +53,10 @@
       padding: 0 16px 48px;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
+      /* Latin を先頭に置く。日本語フォントが英数字まで描画すると
+         A350-900 の "A" だけ大きく見えるなどメトリクスが崩れるため */
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial,
+                   "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
       font-size: 16px;
       line-height: 1.5;
       -webkit-text-size-adjust: 100%;
@@ -194,8 +197,9 @@
 
     .log:last-child { border-bottom: none; }
     .log .left { min-width: 0; }
-    .log .date { font-size: 12px; color: var(--muted); }
-    .log .route-text { font-weight: 600; }
+    .log .sub { font-size: 12px; color: var(--muted); }
+    .log .route-text { font-weight: 600; overflow-wrap: anywhere; }
+    .log .right { text-align: right; flex-shrink: 0; }
     .log .reg {
       font-variant-numeric: tabular-nums;
       font-weight: 600;
@@ -356,9 +360,11 @@
           var html = '<div class="headline">🔁 ' + nth + '回目の搭乗！</div>';
           var last = res.lastFlight;
           if (last) {
+            var lastDep = last.depLabel || last.dep;
+            var lastArr = last.arrLabel || last.arr;
             html += '<div class="detail">前回: ' + esc(last.date) +
               (last.flightNo ? ' ' + esc(last.flightNo) : '') +
-              (last.dep || last.arr ? ' ' + esc(last.dep) + '→' + esc(last.arr) : '') +
+              (lastDep || lastArr ? ' ' + esc(lastDep) + '→' + esc(lastArr) : '') +
               '</div>';
           }
           setBadge('repeat', html);
@@ -464,13 +470,16 @@
         return;
       }
       el.innerHTML = rows.map(function (r) {
-        var route = (r.dep || r.arr) ? esc(r.dep) + '→' + esc(r.arr) : '';
+        var dep = r.depLabel || r.dep;
+        var arr = r.arrLabel || r.arr;
+        var route = (dep || arr) ? esc(dep) + ' → ' + esc(arr) : '';
+        var sub = [r.date, r.flightNo].filter(Boolean).map(esc).join(' · ');
         return '<div class="log">' +
           '<div class="left">' +
-            '<div class="route-text">' + route + (r.flightNo ? ' <span style="font-weight:400">' + esc(r.flightNo) + '</span>' : '') + '</div>' +
-            '<div class="date">' + esc(r.date) + '</div>' +
+            '<div class="route-text">' + route + '</div>' +
+            '<div class="sub">' + sub + '</div>' +
           '</div>' +
-          '<div>' +
+          '<div class="right">' +
             '<div class="reg">' + esc(r.registration) + '</div>' +
             '<div class="type">' + esc(r.type) + '</div>' +
           '</div>' +
@@ -481,7 +490,7 @@
     function renderSuggestions(s) {
       if (!s) return;
       fillList('dl-flightNos', s.flightNos);
-      fillList('dl-airports', s.airports);
+      fillAirportList('dl-airports', s.airports);
       fillList('dl-registrations', s.registrations);
       fillList('dl-types', s.types);
       fillList('dl-airlines', s.airlines);
@@ -490,6 +499,14 @@
     function fillList(id, values) {
       $(id).innerHTML = (values || []).map(function (v) {
         return '<option value="' + esc(v) + '"></option>';
+      }).join('');
+    }
+
+    /* 空港は {code, name} で届く。label を付けると候補が「HND 羽田」と出る */
+    function fillAirportList(id, airports) {
+      $(id).innerHTML = (airports || []).map(function (a) {
+        return '<option value="' + esc(a.code) + '"' +
+          (a.name ? ' label="' + esc(a.name) + '"' : '') + '></option>';
       }).join('');
     }
 
