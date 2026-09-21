@@ -857,10 +857,10 @@
       });
     }
 
-    /** 前方一致を先に、部分一致を後ろに。多すぎても選べないので 30 件まで */
+    /** 前方一致を先に、部分一致を後ろに。多すぎても選べないので 50 件まで */
     function filterSuggest(items, query) {
       var q = String(query || '').trim().toUpperCase();
-      if (!q) return items.slice(0, 30);
+      if (!q) return items.slice(0, 50);
 
       var starts = [];
       var contains = [];
@@ -868,7 +868,7 @@
         if (it.value.toUpperCase().indexOf(q) === 0) starts.push(it);
         else if ((it.value + ' ' + it.label).toUpperCase().indexOf(q) >= 0) contains.push(it);
       });
-      return starts.concat(contains).slice(0, 30);
+      return starts.concat(contains).slice(0, 50);
     }
 
     function showSuggest(input) {

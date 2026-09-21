@@ -189,8 +189,8 @@ function suggestions() {
   return {
     flightNos: uniqSorted_(pick(flights, 'flight_no')),
     airports: airportOptions_(pick(flights, 'dep').concat(pick(flights, 'arr'))),
-    types: uniqSorted_(pick(flights, 'aircraft_type').concat(pick(master, 'aircraft_type'))),
-    airlines: uniqSorted_(pick(flights, 'airline').concat(pick(master, 'airline'))),
+    types: withMaster_(pick(flights, 'aircraft_type').concat(pick(master, 'aircraft_type')), AIRCRAFT_TYPES),
+    airlines: withMaster_(pick(flights, 'airline').concat(pick(master, 'airline')), airlineNames_()),
     registrations: uniqSorted_(pick(master, 'registration').concat(pick(flights, 'registration')))
   };
 }
@@ -246,4 +246,31 @@ function airportOptions_(usedCodes) {
   uniqSorted_(usedCodes).forEach(push);
   Object.keys(AIRPORT_NAMES).sort().forEach(push);
   return out;
+}
+
+/**
+ * 過去に入力した値を先に、続けて対照表の全件を並べる。
+ * よく乗るものが上に来るようにしつつ、まだ乗っていないものも選べるようにする。
+ */
+function withMaster_(used, master) {
+  var seen = {};
+  var out = [];
+
+  var push = function (v) {
+    var s = String(v === null || v === undefined ? '' : v).trim();
+    if (!s || seen[s]) return;
+    seen[s] = true;
+    out.push(s);
+  };
+
+  uniqSorted_(used).forEach(push);
+  (master || []).forEach(push);
+  return out;
+}
+
+/** 航空会社コード表に載っている会社名の一覧 */
+function airlineNames_() {
+  return Object.keys(AIRLINE_CODES)
+    .map(function (code) { return AIRLINE_CODES[code]; })
+    .sort();
 }
