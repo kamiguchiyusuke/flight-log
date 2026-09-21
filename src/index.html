@@ -537,7 +537,7 @@
 
     .ledger__head {
       display: grid;
-      grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+      grid-template-columns: 2.25rem minmax(0, 1fr) auto;
       gap: var(--space-sm);
       padding-block: var(--space-2xs);
       border-top: var(--rule-hair) solid var(--color-rule-firm);
@@ -567,7 +567,7 @@
      */
     .entry {
       display: grid;
-      grid-template-columns: 3.25rem minmax(0, 1fr);
+      grid-template-columns: 2.25rem minmax(0, 1fr);
       gap: var(--space-sm);
       padding-block: var(--space-md);
       border-bottom: var(--rule-hair) solid var(--color-rule);
@@ -675,13 +675,6 @@
       padding: var(--space-3xs);
       border: var(--rule-hair) solid var(--color-rule);
       background: var(--color-sticker);
-    }
-
-    .entry__day {
-      display: block;
-      font-family: var(--font-figure);
-      font-size: var(--text-sm);
-      color: var(--color-muted);
     }
 
     .entry__meta {
@@ -967,7 +960,7 @@
       <div class="tally" id="tally"></div>
       <p class="ledger__hint" id="ledgerHint" hidden>行をタップすると記入欄で直せます</p>
       <div class="ledger__head" aria-hidden="true">
-        <span>DATE</span><span>ROUTE</span><span>AIRFRAME</span>
+        <span></span><span>ROUTE</span><span>AIRFRAME</span>
       </div>
       <div id="ledger"><p class="empty">読み込み中…</p></div>
       <footer class="colophon" id="colophon"></footer>
@@ -1543,9 +1536,9 @@
         leg = '<span class="' + cls + '">' + esc(only) + '</span>';
       }
 
-      var meta = [hasRoute ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
-      var day = '<span class="entry__day">' +
-        esc(String(r.date || '').slice(5).replace('-', '.')) + '</span>';
+      // 日付は空港名の下、補足の行の先頭に置く
+      var day = String(r.date || '').slice(5).replace('-', '.');
+      var meta = [day, hasRoute ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
 
       var logo = r.carrier ? airlineLogoMap[r.carrier] : '';
       var badge = '';
@@ -1556,7 +1549,7 @@
         badge = '<span class="carrier">' + esc(r.carrier) + '</span>';
       }
 
-      var mark = '<span class="entry__mark">' + badge + day + '</span>';
+      var mark = '<span class="entry__mark">' + badge + '</span>';
 
       return '<div class="entry' + (alt ? ' entry--alt' : '') + '">' +
         mark +
