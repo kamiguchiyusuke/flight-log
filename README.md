@@ -58,7 +58,12 @@ src/
 1. [Google AI Studio](https://aistudio.google.com/apikey) で API キーを発行する
 2. GAS エディタの **プロジェクトの設定 > スクリプト プロパティ** で
    `GEMINI_API_KEY` という名前でキーを保存する
-3. `checkScanEngine` を実行すると、どちらが使われるかログに出る
+3. GAS エディタで **`checkScanEngine` を実行**し、承認ダイアログを許可する
+   - `UrlFetchApp` を使うコードを後から足したため、それ以前の承認には
+     外部リクエストの権限が含まれておらず、通しておかないと
+     `UrlFetchApp.fetch を呼び出す権限がありません` になる
+   - 実行ログにどちらの方式が使われるか、キーが生きているかが出る
+4. ウェブアプリを開き直す。まだ OCR に落ちる場合はデプロイを新バージョンで更新する
 
 キーはスクリプトプロパティに置くので、ソースにも Git にも入らない。
 モデル名を変えるときは `src/Gemini.js` の `GEMINI_MODEL` を直す。

@@ -133,14 +133,41 @@ function parseJsonLoosely_(text) {
 }
 
 /**
- * どちらの方式で読み取られるかを確認する。GAS エディタから実行する。
- * キーを設定したのに OCR のままのとき、設定先を間違えていないか確かめるのに使う。
+ * 読み取りの設定を確認する。GAS エディタから実行する。
+ *
+ * この関数は UrlFetchApp に触れるので、外部リクエストの権限が未承認なら
+ * ここで承認ダイアログが出る。Gemini を後から足した場合、それ以前の承認には
+ * この権限が含まれておらず「UrlFetchApp.fetch を呼び出す権限がありません」
+ * になるため、一度この関数を通して承認しておく。
+ *
+ * ついでにモデル一覧を叩いてキーが生きているかも確かめる。
  */
 function checkScanEngine() {
   var key = geminiApiKey_();
-  var msg = key
-    ? 'Gemini を使います（モデル: ' + GEMINI_MODEL + '、キー末尾: ...' + key.slice(-4) + '）'
-    : 'GEMINI_API_KEY が未設定のため、ドライブの OCR を使います';
+
+  if (!key) {
+    return logAndReturn_('GEMINI_API_KEY が未設定のため、ドライブの OCR を使います');
+  }
+
+  var res = UrlFetchApp.fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models?key=' + encodeURIComponent(key),
+    { muteHttpExceptions: true }
+  );
+
+  var code = res.getResponseCode();
+  if (code !== 200) {
+    return logAndReturn_(
+      'キーは設定されていますが Gemini が応答しません (HTTP ' + code + ')。'
+      + 'キーを確認してください。読み取り自体はドライブの OCR で動きます。'
+    );
+  }
+
+  return logAndReturn_(
+    'Gemini を使います（モデル: ' + GEMINI_MODEL + '、キー末尾: ...' + key.slice(-4) + '）'
+  );
+}
+
+function logAndReturn_(msg) {
   Logger.log(msg);
   return msg;
 }
