@@ -48,17 +48,22 @@ function airlineLogos() {
  *
  * 搭乗回数は aircraft シートに保存せず flights から都度数える。
  * ログを手で消しても数がズレないため。
+ *
+ * excludeId を渡すと、その id の記録を数えない。編集中に「その記録自身」を
+ * past として数えてしまうと、3 回目の記録を直しているのに 4 回目と出る。
  */
-function lookupAircraft(registration) {
+function lookupAircraft(registration, excludeId) {
   var key = regKey_(registration);
   if (!key) return { found: false, type: '', airline: '', timesFlown: 0, lastFlight: null };
+
+  var skip = Number(excludeId) || 0;
 
   var master = readAll_(SHEET_AIRCRAFT, AIRCRAFT_COLUMNS).filter(function (a) {
     return regKey_(a.registration) === key;
   })[0];
 
   var flights = readAll_(SHEET_FLIGHTS, FLIGHT_COLUMNS)
-    .filter(function (f) { return regKey_(f.registration) === key; })
+    .filter(function (f) { return regKey_(f.registration) === key && Number(f.id) !== skip; })
     .map(function (f) {
       return {
         date: toDateString_(f.date),
@@ -122,10 +127,12 @@ function lookupFlightNo(flightNo) {
 
 /**
  * 1フライトを保存する。flights に追記し、機体マスタを upsert する。
- * 戻り値の timesFlown は「今回を含めて何回目か」。
+ * payload.id があれば追記ではなくその行を書き換える（台帳からの編集）。
+ * 戻り値の timesFlown は「この記録が何回目の搭乗か」。
  */
 function saveFlight(payload) {
   var p = payload || {};
+  var editId = Number(p.id) || 0;
   var date = toDateString_(p.date);
   var reg = String(p.registration || '').trim().toUpperCase();
   var flightNo = normalizeFlightNo_(p.flightNo);
@@ -146,9 +153,10 @@ function saveFlight(payload) {
   var lock = LockService.getDocumentLock();
   lock.waitLock(10000);
   try {
-    var before = lookupAircraft(reg).timesFlown;
+    // 編集中は自分自身を past から外す。でないと 3 回目を直しているのに 4 回目と出る
+    var before = lookupAircraft(reg, editId).timesFlown;
 
-    var id = appendFlight_({
+    var record = {
       date: date,
       flight_no: flightNo,
       airline: airline,
@@ -157,7 +165,15 @@ function saveFlight(payload) {
       aircraft_type: type,
       registration: reg,
       note: String(p.note || '').trim()
-    });
+    };
+
+    var id;
+    if (editId) {
+      if (!updateFlight_(editId, record)) throw new Error('書き換える記録が見つかりませんでした');
+      id = editId;
+    } else {
+      id = appendFlight_(record);
+    }
 
     upsertAircraft_({
       registration: reg,
@@ -177,6 +193,7 @@ function saveFlight(payload) {
     return {
       ok: true,
       id: id,
+      edited: !!editId,
       registration: reg,
       timesFlown: before + 1,
       log: flightLog(),
@@ -186,6 +203,37 @@ function saveFlight(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 台帳からロゴを操作する。スプレッドシートを開かずに直せるようにするための入口。
+ *
+ *   'none'  この会社はコード表示でよい。以後取りに行かない
+ *   'fetch' 取り直す。既にあるロゴも捨てて取り直す
+ *
+ * 戻り値の logos をそのまま画面に流せば、台帳がその場で描き変わる。
+ */
+function setAirlineLogo(code, action) {
+  var c = String(code || '').trim().toUpperCase();
+  if (!c) throw new Error('航空会社コードがありません');
+
+  if (action === 'none') {
+    setAirlineLogoValue_(c, AIRLINE_LOGO_NONE);
+    return { ok: true, code: c, hasLogo: false, logos: airlineLogos() };
+  }
+
+  if (action === 'fetch') {
+    var logo = fetchAirlineLogo_(c);
+    if (!logo) {
+      // 取れなかった。今の表示（コード）を保ったまま、次回また試せるよう空に戻す
+      setAirlineLogoValue_(c, '');
+      return { ok: false, code: c, hasLogo: false, logos: airlineLogos() };
+    }
+    setAirlineLogoValue_(c, logo);
+    return { ok: true, code: c, hasLogo: true, logos: airlineLogos() };
+  }
+
+  throw new Error('不明な操作です: ' + action);
 }
 
 /**
@@ -206,7 +254,9 @@ function flightLog() {
         depLabel: airportLabel_(f.dep),
         arrLabel: airportLabel_(f.arr),
         type: String(f.aircraft_type || ''),
-        registration: String(f.registration || '')
+        registration: String(f.registration || ''),
+        // 編集で備考が消えないよう、台帳にも載せて持ち回る
+        note: String(f.note || '')
       };
     })
     .sort(function (a, b) {

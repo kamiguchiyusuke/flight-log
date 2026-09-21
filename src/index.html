@@ -501,12 +501,58 @@
 
     .year:first-child { padding-top: var(--space-sm); }
 
+    /*
+     * 1 行に 2 つのボタンを並べる。左端の印はロゴの操作、本体は記録の編集。
+     * 入れ子のボタンは作れないので、grid の列をそのまま当たり判定に使う。
+     */
     .entry {
       display: grid;
-      grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+      grid-template-columns: 3.25rem minmax(0, 1fr);
       gap: var(--space-sm);
       padding-block: var(--space-sm);
       border-bottom: var(--rule-hair) solid var(--color-rule);
+    }
+
+    .entry__mark,
+    .entry__body {
+      appearance: none;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      color: inherit;
+      text-align: start;
+    }
+
+    button.entry__mark,
+    button.entry__body { cursor: pointer; }
+
+    button.entry__mark:focus-visible,
+    button.entry__body:focus-visible {
+      outline: var(--rule-firm) solid var(--color-focus);
+      outline-offset: 2px;
+    }
+
+    button.entry__mark:active,
+    button.entry__body:active { opacity: .65; }
+
+    .entry__body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: var(--space-sm);
+      align-items: start;
+    }
+
+    .entry__main { min-width: 0; }
+
+    @media (hover: hover) and (pointer: fine) {
+      button.entry__body:hover .entry__route {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      button.entry__mark:hover .carrier,
+      button.entry__mark:hover .carrier-logo { border-color: var(--color-accent); }
     }
 
     /* 交互の地色。行を目で追うための実用で、装飾ではない。
@@ -543,12 +589,14 @@
     }
 
     .entry__day {
+      display: block;
       font-family: var(--font-figure);
       font-size: var(--text-sm);
       color: var(--color-muted);
     }
 
     .entry__route {
+      display: block;
       font-size: var(--text-sm);
       font-weight: 600;
       overflow-wrap: anywhere;
@@ -558,6 +606,7 @@
     .entry__route--none { font-weight: 400; color: var(--color-muted); }
 
     .entry__meta {
+      display: block;
       font-family: var(--font-figure);
       font-size: var(--text-xs);
       letter-spacing: 0.04em;
@@ -565,6 +614,7 @@
     }
 
     .entry__reg {
+      display: block;
       text-align: end;
       font-family: var(--font-figure);
       font-size: var(--text-sm);
@@ -580,6 +630,41 @@
     }
 
     .empty { padding-block: var(--space-xl); color: var(--color-muted); font-size: var(--text-sm); }
+
+    /* 編集中であることの表示。記入と上書きを取り違えると記録が壊れる */
+    .editing {
+      display: none;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+      padding: var(--space-xs) var(--space-sm);
+      border-inline-start: var(--rule-firm) solid var(--color-accent);
+      background: var(--color-paper-2);
+      font-size: var(--text-sm);
+    }
+
+    .editing[data-show="true"] { display: flex; }
+
+    .editing__cancel {
+      appearance: none;
+      margin: 0;
+      padding: var(--space-3xs) 0;
+      border: 0;
+      background: none;
+      font: inherit;
+      font-weight: 600;
+      color: var(--color-accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .editing__cancel:focus-visible {
+      outline: var(--rule-firm) solid var(--color-focus);
+      outline-offset: 2px;
+    }
 
     /* Ft2 · 繰越合計。台帳の頁末にある行をそのまま機能させる */
     .colophon {
@@ -687,6 +772,11 @@
     <section id="panel-input" class="panel" data-active="true" role="tabpanel" aria-labelledby="tab-input">
       <form id="form" class="form" autocomplete="off" novalidate>
 
+        <div class="editing" id="editing" data-show="false">
+          <span id="editingLabel"></span>
+          <button type="button" class="editing__cancel" id="editCancel">やめる</button>
+        </div>
+
         <div class="affix">
           <span class="affix__corner" aria-hidden="true"></span>
           <span class="affix__corner" aria-hidden="true"></span>
@@ -773,6 +863,8 @@
     var toastTimer = null;
     var scanning = false;
     var dateTouched = false;
+    var editingId = 0;      // 0 なら新規記入、それ以外は台帳のその id を書き換える
+    var logRows = [];       // 台帳の最新データ。編集で元の値を引くのに使う
     var suppressSuggest = false;
 
     /* ---------- タブ ---------- */
@@ -859,7 +951,7 @@
           setStamp('', '');
           toast(errorText(err), true);
         })
-        .lookupAircraft(reg);
+        .lookupAircraft(reg, editingId);
     }
 
     $('registration').addEventListener('input', scheduleLookup);
@@ -959,6 +1051,7 @@
       clearTimeout(lookupTimer);
 
       var payload = {
+        id: editingId,
         date: $('date').value,
         flightNo: $('flightNo').value.trim().toUpperCase(),
         dep: $('dep').value.trim().toUpperCase(),
@@ -976,7 +1069,8 @@
           renderLogos(res.logos);
           renderLog(res.log);
           renderSuggestions(res.suggestions);
-          toast(res.registration + ' · ' + res.timesFlown + '回目として記入しました');
+          toast(res.registration + ' · ' + res.timesFlown + '回目として' +
+            (res.edited ? '直しました' : '記入しました'));
           resetForm();
         })
         .withFailureHandler(function (err) {
@@ -988,12 +1082,15 @@
 
     function setSaving(on) {
       submitBtn.disabled = on;
-      submitBtn.textContent = on ? '記入中…' : '記入する';
+      submitBtn.textContent = on ? '記入中…' : (editingId ? '記入を直す' : '記入する');
     }
 
     function resetForm() {
       hideSuggest();
       clearFieldErrors();
+      editingId = 0;
+      $('editing').setAttribute('data-show', 'false');
+      submitBtn.textContent = '記入する';
       // 搭乗日は残す。同じ日に複数レグ乗ることがあるため
       ['flightNo', 'dep', 'arr', 'registration', 'aircraftType', 'airline', 'note'].forEach(function (id) {
         $(id).value = '';
@@ -1149,6 +1246,7 @@
 
     function renderLog(rows) {
       var el = $('ledger');
+      logRows = rows || [];
       $('tabCount').textContent = (rows && rows.length) ? rows.length : '';
 
       if (!rows || !rows.length) {
@@ -1200,29 +1298,121 @@
       var headClass = (route || r.flightNo) ? '' : ' entry__route--none';
 
       var meta = [route ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
-      var day = String(r.date || '').slice(5).replace('-', '.');
+      var day = '<span class="entry__day">' +
+        esc(String(r.date || '').slice(5).replace('-', '.')) + '</span>';
 
       var logo = r.carrier ? airlineLogoMap[r.carrier] : '';
-      var mark = '';
+      var badge = '';
       if (logo) {
-        mark = '<img class="carrier-logo" src="' + esc(logo) +
+        badge = '<img class="carrier-logo" src="' + esc(logo) +
           '" alt="' + esc(r.airline || r.carrier) + '" width="24" height="24" loading="lazy">';
       } else if (r.carrier) {
-        mark = '<span class="carrier">' + esc(r.carrier) + '</span>';
+        badge = '<span class="carrier">' + esc(r.carrier) + '</span>';
       }
 
+      // 便名の無い行は航空会社が分からず操作対象にならないので、ボタンにしない
+      var mark = r.carrier
+        ? '<button type="button" class="entry__mark" data-carrier="' + esc(r.carrier) +
+          '" data-haslogo="' + (logo ? '1' : '') +
+          '" aria-label="' + esc(r.airline || r.carrier) + 'のロゴを切り替える">' +
+          badge + day + '</button>'
+        : '<span class="entry__mark">' + day + '</span>';
+
       return '<div class="entry' + (alt ? ' entry--alt' : '') + '">' +
-        '<div class="entry__mark">' + mark +
-          '<span class="entry__day">' + esc(day) + '</span>' +
-        '</div>' +
-        '<div>' +
-          '<div class="entry__route' + headClass + '">' + esc(head) + '</div>' +
-          '<div class="entry__meta">' + esc(meta) + '</div>' +
-        '</div>' +
-        '<div class="entry__reg">' + esc(r.registration) +
-          '<span class="entry__type">' + esc(r.type) + '</span>' +
-        '</div>' +
+        mark +
+        '<button type="button" class="entry__body" data-id="' + esc(r.id) +
+          '" aria-label="この記録を直す">' +
+          '<span class="entry__main">' +
+            '<span class="entry__route' + headClass + '">' + esc(head) + '</span>' +
+            '<span class="entry__meta">' + esc(meta) + '</span>' +
+          '</span>' +
+          '<span class="entry__reg">' + esc(r.registration) +
+            '<span class="entry__type">' + esc(r.type) + '</span>' +
+          '</span>' +
+        '</button>' +
       '</div>';
+    }
+
+    /* ---------- 台帳からの操作 ---------- */
+
+    /* クラス名で祖先をたどる。台帳は行ごとに要素を作り直すので委譲で受ける */
+    function closestByClass(node, cls) {
+      while (node && node !== document) {
+        if (node.classList && node.classList.contains(cls)) return node;
+        node = node.parentNode;
+      }
+      return null;
+    }
+
+    $('ledger').addEventListener('click', function (e) {
+      var body = closestByClass(e.target, 'entry__body');
+      if (body) { startEdit(Number(body.getAttribute('data-id'))); return; }
+
+      var mark = closestByClass(e.target, 'entry__mark');
+      if (mark && mark.tagName === 'BUTTON') toggleLogo(mark);
+    });
+
+    $('editCancel').addEventListener('click', resetForm);
+
+    /** 台帳の行を記入欄へ引き写して編集に入る。フォームはそのまま使い回す */
+    function startEdit(id) {
+      var r = null;
+      for (var i = 0; i < logRows.length; i++) {
+        if (Number(logRows[i].id) === id) { r = logRows[i]; break; }
+      }
+      if (!r) return;
+
+      editingId = id;
+
+      // 値を入れる間は候補を開かせない
+      suppressSuggest = true;
+      $('date').value = r.date || '';
+      $('flightNo').value = r.flightNo || '';
+      $('dep').value = r.dep || '';
+      $('arr').value = r.arr || '';
+      $('registration').value = r.registration || '';
+      $('aircraftType').value = r.type || '';
+      $('airline').value = r.airline || '';
+      $('note').value = r.note || '';
+      suppressSuggest = false;
+
+      // 読み取りが搭乗日を上書きしないようにする
+      dateTouched = true;
+      clearFieldErrors();
+      $('scanResult').innerHTML = '';
+      lastLookedUp = '';
+      setStamp('', '');
+
+      $('editingLabel').textContent =
+        [r.date, r.flightNo, r.registration].filter(Boolean).join(' · ') + ' を編集中';
+      $('editing').setAttribute('data-show', 'true');
+      submitBtn.textContent = '記入を直す';
+
+      switchTab('panel-input');
+      runLookup();
+    }
+
+    /**
+     * ロゴの入切。押すたびに「外す」と「取り直す」が入れ替わるので、
+     * 確認ダイアログも取り消しボタンも要らない。もう一度押せば戻る。
+     */
+    function toggleLogo(btn) {
+      var code = btn.getAttribute('data-carrier');
+      if (!code) return;
+      var had = btn.getAttribute('data-haslogo') === '1';
+
+      toast(code + (had ? ' のロゴを外しています…' : ' のロゴを取得しています…'));
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          renderLogos(res.logos);
+          renderLog(logRows);
+          if (had) toast(code + ' のロゴを外しました。もう一度押すと取り直します');
+          else if (res.hasLogo) toast(code + ' のロゴを取得しました');
+          else toast(code + ' のロゴを取得できませんでした', true);
+        })
+        .withFailureHandler(function (err) { toast(errorText(err), true); })
+        .setAirlineLogo(code, had ? 'none' : 'fetch');
     }
 
     /* ---------- 入力候補 ---------- */

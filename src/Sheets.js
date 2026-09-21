@@ -5,7 +5,7 @@
 
 /**
  * 初回セットアップ。GAS エディタから1回だけ手動実行する。
- * flights / aircraft シートとヘッダ行を生成する。
+ * flights / aircraft / airlines シートとヘッダ行を生成する。
  * 既にシートがある場合は何も壊さない。
  */
 function setup() {
@@ -69,6 +69,37 @@ function appendFlight_(obj) {
   return id;
 }
 
+/**
+ * 既存のフライトを書き換える。見つからなければ false。
+ *
+ * id と created_at は残す。created_at は「いつ記入したか」であって
+ * 「いつ直したか」ではないので、編集で動かすと意味が変わってしまう。
+ */
+function updateFlight_(id, obj) {
+  var sheet = getSheet_(SHEET_FLIGHTS, FLIGHT_COLUMNS);
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return false;
+
+  var target = Number(id);
+  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+
+  for (var i = 0; i < ids.length; i++) {
+    if (Number(ids[i][0]) !== target) continue;
+
+    var range = sheet.getRange(i + 2, 1, 1, FLIGHT_COLUMNS.length);
+    var current = range.getValues()[0];
+
+    var row = FLIGHT_COLUMNS.map(function (col, idx) {
+      if (col === 'id' || col === 'created_at') return current[idx];
+      return obj[col] === undefined || obj[col] === null ? '' : obj[col];
+    });
+
+    range.setValues([row]);
+    return true;
+  }
+  return false;
+}
+
 /** flights の id 最大値 + 1 */
 function nextId_(sheet) {
   var lastRow = sheet.getLastRow();
@@ -124,10 +155,9 @@ function upsertAircraft_(obj) {
 /**
  * 航空会社のロゴマスタを upsert する。機体マスタと同じく「空欄だけ」を埋める。
  *
- * 注意: 「ロゴ列を空にした」＝この会社はコード表示でよい、という意思表示だが、
- * この関数はそれを区別できない（空欄なら埋めてしまう）。
- * その判断は呼び出し側が持つ。Logos.js の ensureAirlineLogo_() は
- * 行が既にあれば何もしないので、一度消したロゴは復活しない。
+ * 「まだ取っていない（空欄）」と「ロゴ不要」の区別はこの関数では持たない。
+ * その判断は呼び出し側にある（Logos.js の ensureAirlineLogo_）。
+ * 画面からの操作で上書きしたいときは setAirlineLogoValue_() を使う。
  */
 function upsertAirline_(obj) {
   var code = String(obj.code || '').trim().toUpperCase();
@@ -160,6 +190,36 @@ function upsertAirline_(obj) {
   sheet.appendRow(AIRLINE_COLUMNS.map(function (col) {
     if (col === 'code') return code;
     return obj[col] || '';
+  }));
+}
+
+/**
+ * ロゴ列を問答無用で書き換える。行が無ければ作る。
+ * upsertAirline_ は空欄しか埋めないので、画面から「このロゴを使わない」
+ * 「取り直す」を操作したときはこちらを使う。
+ */
+function setAirlineLogoValue_(code, value) {
+  var c = String(code || '').trim().toUpperCase();
+  if (!c) return;
+
+  var sheet = getSheet_(SHEET_AIRLINES, AIRLINE_COLUMNS);
+  var logoIdx = AIRLINE_COLUMNS.indexOf('logo');
+  var lastRow = sheet.getLastRow();
+
+  if (lastRow >= 2) {
+    var codes = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+    for (var i = 0; i < codes.length; i++) {
+      if (String(codes[i][0] || '').trim().toUpperCase() !== c) continue;
+      sheet.getRange(i + 2, logoIdx + 1).setValue(value);
+      return;
+    }
+  }
+
+  sheet.appendRow(AIRLINE_COLUMNS.map(function (col) {
+    if (col === 'code') return c;
+    if (col === 'logo') return value;
+    if (col === 'name') return AIRLINE_CODES[c] || '';
+    return '';
   }));
 }
 
