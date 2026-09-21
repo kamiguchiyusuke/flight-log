@@ -178,6 +178,51 @@
 
     button:disabled { opacity: .55; cursor: default; }
 
+    /* タブ。上の button 共通スタイルを打ち消してから組み直す */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 4px;
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      flex: 1;
+      width: auto;
+      margin: 0;
+      min-height: 42px;
+      padding: 9px 10px;
+      font-size: 15px;
+      background: transparent;
+      color: var(--muted);
+      border-radius: 7px;
+    }
+
+    .tab.active {
+      background: var(--accent);
+      color: var(--accent-text);
+    }
+
+    .tab .count { font-size: 12px; font-weight: 400; opacity: .75; margin-left: 5px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .summary { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+
+    .year {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      letter-spacing: .04em;
+      padding: 16px 0 6px;
+    }
+
+    .year:first-child { padding-top: 0; }
+
     h2 {
       font-size: 13px;
       font-weight: 600;
@@ -237,56 +282,65 @@
   <div class="wrap">
     <h1>搭乗機材ログ</h1>
 
-    <form id="form" class="card" autocomplete="off">
-      <div class="field">
-        <label for="date">搭乗日</label>
-        <input type="date" id="date" required>
-      </div>
+    <nav class="tabs">
+      <button type="button" class="tab active" data-panel="panel-input">入力</button>
+      <button type="button" class="tab" data-panel="panel-log">ログ<span class="count" id="tabCount"></span></button>
+    </nav>
 
-      <div class="field">
-        <label for="flightNo">便名</label>
-        <input id="flightNo" class="upper" list="dl-flightNos" placeholder="NH262" autocapitalize="characters" autocorrect="off" spellcheck="false">
-      </div>
-
-      <div class="field route">
-        <div>
-          <label for="dep">出発</label>
-          <input id="dep" class="upper" list="dl-airports" placeholder="HND" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+    <div id="panel-input" class="panel active">
+      <form id="form" class="card" autocomplete="off">
+        <div class="field">
+          <label for="date">搭乗日</label>
+          <input type="date" id="date" required>
         </div>
-        <div class="arrow">→</div>
-        <div>
-          <label for="arr">到着</label>
-          <input id="arr" class="upper" list="dl-airports" placeholder="ITM" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+
+        <div class="field">
+          <label for="flightNo">便名</label>
+          <input id="flightNo" class="upper" list="dl-flightNos" placeholder="NH262" autocapitalize="characters" autocorrect="off" spellcheck="false">
         </div>
+
+        <div class="field route">
+          <div>
+            <label for="dep">出発</label>
+            <input id="dep" class="upper" list="dl-airports" placeholder="HND" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+          </div>
+          <div class="arrow">→</div>
+          <div>
+            <label for="arr">到着</label>
+            <input id="arr" class="upper" list="dl-airports" placeholder="ITM" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="registration">登録記号</label>
+          <input id="registration" class="upper" list="dl-registrations" placeholder="JA873A" required autocapitalize="characters" autocorrect="off" spellcheck="false">
+          <div id="badge"></div>
+        </div>
+
+        <div class="field">
+          <label for="aircraftType">機材型式</label>
+          <input id="aircraftType" list="dl-types" placeholder="B787-9">
+        </div>
+
+        <div class="field">
+          <label for="airline">航空会社</label>
+          <input id="airline" list="dl-airlines" placeholder="便名から自動判定">
+        </div>
+
+        <div class="field">
+          <label for="note">メモ</label>
+          <input id="note" placeholder="任意">
+        </div>
+
+        <button type="submit" id="submit">保存</button>
+      </form>
+    </div>
+
+    <div id="panel-log" class="panel">
+      <div class="card">
+        <div class="summary" id="logSummary"></div>
+        <div id="log"><div class="empty">読み込み中…</div></div>
       </div>
-
-      <div class="field">
-        <label for="registration">登録記号</label>
-        <input id="registration" class="upper" list="dl-registrations" placeholder="JA873A" required autocapitalize="characters" autocorrect="off" spellcheck="false">
-        <div id="badge"></div>
-      </div>
-
-      <div class="field">
-        <label for="aircraftType">機材型式</label>
-        <input id="aircraftType" list="dl-types" placeholder="B787-9">
-      </div>
-
-      <div class="field">
-        <label for="airline">航空会社</label>
-        <input id="airline" list="dl-airlines" placeholder="便名から自動判定">
-      </div>
-
-      <div class="field">
-        <label for="note">メモ</label>
-        <input id="note" placeholder="任意">
-      </div>
-
-      <button type="submit" id="submit">保存</button>
-    </form>
-
-    <div class="card">
-      <h2>直近の記録</h2>
-      <div id="recent"><div class="empty">読み込み中…</div></div>
     </div>
   </div>
 
@@ -305,16 +359,34 @@
     var submitBtn = $('submit');
     var toastTimer = null;
 
+    /* ---------- タブ ---------- */
+
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (tab) {
+      tab.addEventListener('click', function () {
+        switchTab(tab.getAttribute('data-panel'));
+      });
+    });
+
+    function switchTab(panelId) {
+      Array.prototype.forEach.call(document.querySelectorAll('.tab'), function (t) {
+        t.classList.toggle('active', t.getAttribute('data-panel') === panelId);
+      });
+      Array.prototype.forEach.call(document.querySelectorAll('.panel'), function (p) {
+        p.classList.toggle('active', p.id === panelId);
+      });
+      window.scrollTo(0, 0);
+    }
+
     /* ---------- 起動 ---------- */
 
     google.script.run
       .withSuccessHandler(function (data) {
         if (!$('date').value) $('date').value = data.today;
         renderSuggestions(data.suggestions);
-        renderRecent(data.recent);
+        renderLog(data.log);
       })
       .withFailureHandler(function (err) {
-        $('recent').innerHTML = '<div class="empty">読み込みに失敗しました</div>';
+        $('log').innerHTML = '<div class="empty">読み込みに失敗しました</div>';
         toast(errorText(err), true);
       })
       .bootstrap();
@@ -434,7 +506,7 @@
       google.script.run
         .withSuccessHandler(function (res) {
           setSaving(false);
-          renderRecent(res.recent);
+          renderLog(res.log);
           renderSuggestions(res.suggestions);
           toast('✅ ' + res.registration + ' を保存しました（' + res.timesFlown + '回目）');
           resetForm();
@@ -463,28 +535,49 @@
 
     /* ---------- 描画 ---------- */
 
-    function renderRecent(rows) {
-      var el = $('recent');
+    function renderLog(rows) {
+      var el = $('log');
+      $('tabCount').textContent = (rows && rows.length) ? rows.length : '';
+
       if (!rows || !rows.length) {
         el.innerHTML = '<div class="empty">まだ記録がありません</div>';
+        $('logSummary').textContent = '';
         return;
       }
+
+      var regs = {};
+      rows.forEach(function (r) { if (r.registration) regs[r.registration] = true; });
+      $('logSummary').textContent =
+        rows.length + ' フライト・' + Object.keys(regs).length + ' 機体';
+
+      // rows は搭乗日の新しい順で届くので、切り替わったところに年の見出しを挟む
+      var year = '';
       el.innerHTML = rows.map(function (r) {
-        var dep = r.depLabel || r.dep;
-        var arr = r.arrLabel || r.arr;
-        var route = (dep || arr) ? esc(dep) + ' → ' + esc(arr) : '';
-        var sub = [r.date, r.flightNo].filter(Boolean).map(esc).join(' · ');
-        return '<div class="log">' +
-          '<div class="left">' +
-            '<div class="route-text">' + route + '</div>' +
-            '<div class="sub">' + sub + '</div>' +
-          '</div>' +
-          '<div class="right">' +
-            '<div class="reg">' + esc(r.registration) + '</div>' +
-            '<div class="type">' + esc(r.type) + '</div>' +
-          '</div>' +
-        '</div>';
+        var head = '';
+        var y = String(r.date || '').slice(0, 4);
+        if (y && y !== year) {
+          year = y;
+          head = '<div class="year">' + esc(y) + '年</div>';
+        }
+        return head + logRow(r);
       }).join('');
+    }
+
+    function logRow(r) {
+      var dep = r.depLabel || r.dep;
+      var arr = r.arrLabel || r.arr;
+      var route = (dep || arr) ? esc(dep) + ' → ' + esc(arr) : '';
+      var sub = [r.date, r.flightNo].filter(Boolean).map(esc).join(' · ');
+      return '<div class="log">' +
+        '<div class="left">' +
+          '<div class="route-text">' + route + '</div>' +
+          '<div class="sub">' + sub + '</div>' +
+        '</div>' +
+        '<div class="right">' +
+          '<div class="reg">' + esc(r.registration) + '</div>' +
+          '<div class="type">' + esc(r.type) + '</div>' +
+        '</div>' +
+      '</div>';
     }
 
     function renderSuggestions(s) {

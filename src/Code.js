@@ -17,7 +17,7 @@ function doGet() {
 function bootstrap() {
   return {
     suggestions: suggestions(),
-    recent: recentFlights(5),
+    log: flightLog(),
     today: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')
   };
 }
@@ -143,7 +143,7 @@ function saveFlight(payload) {
       id: id,
       registration: reg,
       timesFlown: before + 1,
-      recent: recentFlights(5),
+      log: flightLog(),
       suggestions: suggestions()
     };
   } finally {
@@ -151,9 +151,11 @@ function saveFlight(payload) {
   }
 }
 
-/** 直近に入力したフライトを新しい順に返す */
-function recentFlights(limit) {
-  var n = Number(limit) || 5;
+/**
+ * 搭乗ログを全件、搭乗日の新しい順に返す。
+ * 同じ日に複数レグ乗った場合は、後から入力した方を上に出す。
+ */
+function flightLog() {
   return readAll_(SHEET_FLIGHTS, FLIGHT_COLUMNS)
     .map(function (f) {
       return {
@@ -169,8 +171,10 @@ function recentFlights(limit) {
         registration: String(f.registration || '')
       };
     })
-    .sort(function (a, b) { return b.id - a.id; })
-    .slice(0, n);
+    .sort(function (a, b) {
+      if (a.date !== b.date) return a.date < b.date ? 1 : -1;
+      return b.id - a.id;
+    });
 }
 
 /** datalist 用の入力候補。過去に入力した値から作る */
