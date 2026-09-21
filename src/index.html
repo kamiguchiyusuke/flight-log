@@ -124,6 +124,38 @@
       text-align: left;
     }
 
+    /* 入力候補。datalist の代わりに自前で出す */
+    .combo-host { position: relative; }
+
+    .suggest {
+      display: none;
+      position: absolute;
+      z-index: 20;
+      max-height: 244px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      background: var(--card);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, .28);
+    }
+
+    .suggest-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      /* 指で押せる高さを確保する */
+      padding: 11px 12px;
+      font-size: 15px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .suggest-item:last-child { border-bottom: none; }
+    .suggest-item .sv { font-weight: 600; }
+    .suggest-item .sl { font-size: 13px; color: var(--muted); }
+
     .route {
       display: grid;
       grid-template-columns: 1fr 32px 1fr;
@@ -374,35 +406,35 @@
 
         <div class="field">
           <label for="flightNo">便名</label>
-          <input id="flightNo" class="upper" list="dl-flightNos" placeholder="NH262" autocapitalize="characters" autocorrect="off" spellcheck="false">
+          <input id="flightNo" class="upper" placeholder="NH262" autocapitalize="characters" autocorrect="off" spellcheck="false">
         </div>
 
         <div class="field route">
           <div>
             <label for="dep">出発</label>
-            <input id="dep" class="upper" list="dl-airports" placeholder="HND" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+            <input id="dep" class="upper" placeholder="HND" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
           </div>
           <div class="arrow">→</div>
           <div>
             <label for="arr">到着</label>
-            <input id="arr" class="upper" list="dl-airports" placeholder="ITM" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+            <input id="arr" class="upper" placeholder="ITM" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
           </div>
         </div>
 
         <div class="field">
           <label for="registration">登録記号</label>
-          <input id="registration" class="upper" list="dl-registrations" placeholder="JA873A" required autocapitalize="characters" autocorrect="off" spellcheck="false">
+          <input id="registration" class="upper" placeholder="JA873A" required autocapitalize="characters" autocorrect="off" spellcheck="false">
           <div id="badge"></div>
         </div>
 
         <div class="field">
           <label for="aircraftType">機材型式</label>
-          <input id="aircraftType" list="dl-types" placeholder="B787-9">
+          <input id="aircraftType" placeholder="B787-9">
         </div>
 
         <div class="field">
           <label for="airline">航空会社</label>
-          <input id="airline" list="dl-airlines" placeholder="便名から自動判定">
+          <input id="airline" placeholder="便名から自動判定">
         </div>
 
         <div class="field">
@@ -422,11 +454,8 @@
     </div>
   </div>
 
-  <datalist id="dl-flightNos"></datalist>
-  <datalist id="dl-airports"></datalist>
-  <datalist id="dl-registrations"></datalist>
-  <datalist id="dl-types"></datalist>
-  <datalist id="dl-airlines"></datalist>
+  <!-- 入力候補の箱。JS が入力中の欄の下に付け替える -->
+  <div id="suggest" class="suggest"></div>
 
   <div id="toast"></div>
 
@@ -794,28 +823,121 @@
       '</div>';
     }
 
+    /* ---------- 入力候補 ---------- */
+
+    /*
+     * datalist は iOS の Safari でまともに表示されないため自前で作る。
+     * 候補の箱は 1 つだけ用意し、入力中の欄の親に付け替えて使い回す。
+     */
+
+    var SUGGEST_SOURCE = {
+      flightNo: 'flightNos',
+      dep: 'airports',
+      arr: 'airports',
+      registration: 'registrations',
+      aircraftType: 'types',
+      airline: 'airlines'
+    };
+
+    var suggestData = {};
+    var suggestEl = $('suggest');
+    var suggestInput = null;
+    var suppressSuggest = false;
+
     function renderSuggestions(s) {
-      if (!s) return;
-      fillList('dl-flightNos', s.flightNos);
-      fillAirportList('dl-airports', s.airports);
-      fillList('dl-registrations', s.registrations);
-      fillList('dl-types', s.types);
-      fillList('dl-airlines', s.airlines);
+      if (s) suggestData = s;
     }
 
-    function fillList(id, values) {
-      $(id).innerHTML = (values || []).map(function (v) {
-        return '<option value="' + esc(v) + '"></option>';
-      }).join('');
+    /** 候補を {value, label} にそろえる。空港だけ {code, name} で届く */
+    function suggestItems(inputId) {
+      var raw = suggestData[SUGGEST_SOURCE[inputId]] || [];
+      return raw.map(function (v) {
+        if (v && typeof v === 'object') return { value: v.code, label: v.name || '' };
+        return { value: String(v), label: '' };
+      });
     }
 
-    /* 空港は {code, name} で届く。label を付けると候補が「HND 羽田」と出る */
-    function fillAirportList(id, airports) {
-      $(id).innerHTML = (airports || []).map(function (a) {
-        return '<option value="' + esc(a.code) + '"' +
-          (a.name ? ' label="' + esc(a.name) + '"' : '') + '></option>';
-      }).join('');
+    /** 前方一致を先に、部分一致を後ろに。多すぎても選べないので 30 件まで */
+    function filterSuggest(items, query) {
+      var q = String(query || '').trim().toUpperCase();
+      if (!q) return items.slice(0, 30);
+
+      var starts = [];
+      var contains = [];
+      items.forEach(function (it) {
+        if (it.value.toUpperCase().indexOf(q) === 0) starts.push(it);
+        else if ((it.value + ' ' + it.label).toUpperCase().indexOf(q) >= 0) contains.push(it);
+      });
+      return starts.concat(contains).slice(0, 30);
     }
+
+    function showSuggest(input) {
+      var items = filterSuggest(suggestItems(input.id), input.value);
+      if (!items.length) { hideSuggest(); return; }
+
+      suggestEl.innerHTML = items.map(function (it) {
+        return '<div class="suggest-item" data-value="' + esc(it.value) + '">' +
+          '<span class="sv">' + esc(it.value) + '</span>' +
+          (it.label ? '<span class="sl">' + esc(it.label) + '</span>' : '') +
+          '</div>';
+      }).join('');
+
+      // 先に親を position:relative にしてから offsetTop を読む。
+      // 入力欄の真下に出したいので、欄そのものを基準にする
+      var host = input.parentNode;
+      host.classList.add('combo-host');
+      host.appendChild(suggestEl);
+
+      suggestEl.style.top = (input.offsetTop + input.offsetHeight + 4) + 'px';
+      suggestEl.style.left = input.offsetLeft + 'px';
+      suggestEl.style.width = input.offsetWidth + 'px';
+      suggestEl.style.display = 'block';
+      suggestInput = input;
+    }
+
+    function hideSuggest() {
+      suggestEl.style.display = 'none';
+      suggestInput = null;
+    }
+
+    /**
+     * 候補のタップ。click を待つと先に blur が走って候補が消えるので、
+     * mousedown / touchstart で拾って preventDefault する。
+     */
+    function pickSuggest(e) {
+      if (!suggestInput) return;
+
+      var node = e.target;
+      while (node && node !== suggestEl && !(node.classList && node.classList.contains('suggest-item'))) {
+        node = node.parentNode;
+      }
+      if (!node || node === suggestEl) return;
+
+      e.preventDefault();
+      var input = suggestInput;
+      input.value = node.getAttribute('data-value');
+      hideSuggest();
+
+      // 既存の大文字化・照合の処理につなぐ。
+      // この input で候補が開き直さないよう抑止しておく
+      suppressSuggest = true;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+      suppressSuggest = false;
+    }
+
+    suggestEl.addEventListener('mousedown', pickSuggest);
+    suggestEl.addEventListener('touchstart', pickSuggest, { passive: false });
+
+    Object.keys(SUGGEST_SOURCE).forEach(function (id) {
+      var el = $(id);
+      el.addEventListener('focus', function () { showSuggest(el); });
+      el.addEventListener('input', function () { if (!suppressSuggest) showSuggest(el); });
+      el.addEventListener('blur', function () {
+        // 別の欄へ移ったときに、そちらの候補まで消さないよう持ち主を確認する
+        setTimeout(function () { if (suggestInput === el) hideSuggest(); }, 150);
+      });
+    });
 
     /* ---------- ユーティリティ ---------- */
 
