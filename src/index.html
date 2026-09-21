@@ -569,7 +569,14 @@
       display: grid;
       grid-template-columns: 2.75rem minmax(0, 1fr);
       gap: var(--space-sm);
-      padding-block: var(--space-md);
+      align-items: center;
+      padding-block: var(--space-xs);
+      /*
+       * 補足の行は空港名の下にぶら下がる。同じ高さを上にも履かせると
+       * 空港名が行の縦中央に来る。登録記号にも同じ下駄を履かせて、
+       * 空港名と同じ高さから書き出す
+       */
+      --leg-offset: calc(var(--text-xs) * 1.55 + var(--space-2xs));
       border-bottom: var(--rule-hair) solid var(--color-rule);
     }
 
@@ -604,7 +611,12 @@
       align-items: start;
     }
 
-    .entry__main { min-width: 0; display: grid; gap: var(--space-2xs); }
+    .entry__main {
+      min-width: 0;
+      display: grid;
+      gap: var(--space-2xs);
+      padding-block-start: var(--leg-offset);
+    }
 
     /*
      * 出発と到着を列の両端へ振り、間を細い罫で結ぶ。
@@ -720,6 +732,7 @@
     .entry__reg {
       display: block;
       text-align: end;
+      padding-block-start: var(--leg-offset);
       font-family: var(--font-figure);
       font-size: var(--text-base);
       font-weight: 600;
