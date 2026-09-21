@@ -169,6 +169,7 @@ function flightLog() {
         id: Number(f.id) || 0,
         date: toDateString_(f.date),
         flightNo: String(f.flight_no || ''),
+        carrier: carrierCode_(f.flight_no),
         airline: String(f.airline || ''),
         dep: String(f.dep || ''),
         arr: String(f.arr || ''),
@@ -220,11 +221,15 @@ function normalizeFlightNo_(v) {
   return String(v === null || v === undefined ? '' : v).toUpperCase().replace(/\s+/g, '').trim();
 }
 
+/** 便名の頭2文字（IATA の航空会社コード）。取れなければ空文字 */
+function carrierCode_(flightNo) {
+  var m = normalizeFlightNo_(flightNo).match(/^([A-Z0-9]{2})\d/);
+  return m ? m[1] : '';
+}
+
 /** 便名の頭2文字から航空会社名を引く。表になければ空文字 */
 function airlineFromFlightNo_(flightNo) {
-  var m = normalizeFlightNo_(flightNo).match(/^([A-Z0-9]{2})\d/);
-  if (!m) return '';
-  return AIRLINE_CODES[m[1]] || '';
+  return AIRLINE_CODES[carrierCode_(flightNo)] || '';
 }
 
 /** 空港コードを「羽田(HND)」形式にする。対照表にないコードはそのまま返す */

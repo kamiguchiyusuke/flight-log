@@ -8,10 +8,11 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
   <style>
 /* Hallmark · genre: editorial · macrostructure: Index-First · theme: custom
- * vibe: "aged ledger stock, blue-black ink, red rule"
- * paper oklch(96.5% 0.015 85) warm-cream · accent oklch(47% 0.17 30) ledger-red
+ * vibe: "warm ledger stock, blue-black ink, red only for corrections"
+ * paper oklch(96.5% 0.015 85) warm-cream · accent oklch(45% 0.15 250) ink-blue
+ * alert oklch(50% 0.18 30) ledger-red — corrections and totals only
  * display Zen Old Mincho · body IBM Plex Sans · outlier IBM Plex Mono
- * axes: light paper / classical-serif display / warm accent
+ * axes: light paper / classical-serif display / cool accent
  * nav: N6 masthead (left-flush knob) · footer: Ft2 inline rule
  * pre-emit critique: P5 H5 E4 S5 R5 V4
  */
@@ -21,19 +22,21 @@
     :root {
       color-scheme: light dark;
 
-      /* 台帳の紙。温かいクリーム地を基準色(hue 85)に、中間色すべてをそこへ寄せる */
+      /* 台帳の紙。温かいクリーム地(hue 85) */
       --color-paper:      oklch(96.5% 0.015 85);
       --color-paper-2:    oklch(93.5% 0.019 82);
       --color-paper-3:    oklch(90%   0.022 82);
-      --color-rule:       oklch(81%   0.020 80);
-      --color-rule-firm:  oklch(62%   0.025 78);
-      --color-muted:      oklch(48%   0.016 75);
-      --color-ink:        oklch(23%   0.020 70);
+      /* 紙は温かいまま、その上に引かれるもの（罫・文字）は青黒へ寄せる */
+      --color-rule:       oklch(80%   0.020 245);
+      --color-rule-firm:  oklch(60%   0.030 250);
+      --color-muted:      oklch(47%   0.025 255);
+      --color-ink:        oklch(22%   0.030 265);
 
-      /* 赤は「注意・訂正・合計」。台帳で赤が担う役割をそのまま使う */
-      --color-accent:     oklch(47% 0.17 30);
-      --color-accent-2:   oklch(45% 0.12 250);   /* 記入用のインク青 */
-      --color-focus:      oklch(47% 0.17 30);
+      /* 主色は記入用のインク青。罫・見出し・活性の目印はすべてこれ */
+      --color-accent:      oklch(45% 0.15 250);
+      /* 赤は「注意・訂正・合計」だけに退く。台帳で赤が担う役割そのまま */
+      --color-accent-warm: oklch(50% 0.18 30);
+      --color-focus:       oklch(45% 0.15 250);
 
       --font-display: "Zen Old Mincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
       --font-body:    "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
@@ -68,7 +71,7 @@
       --dur-micro: 120ms;
       --dur-short: 220ms;
 
-      --shadow-hair: 0 1px 2px oklch(20% 0.01 70 / 0.12);
+      --shadow-hair: 0 1px 2px oklch(20% 0.01 265 / 0.14);
 
       --z-base: 1;
       --z-dropdown: 100;
@@ -78,17 +81,17 @@
     @media (prefers-color-scheme: dark) {
       :root:not([data-theme="light"]) {
         /* 革表紙の記録簿を灯りの下で開いた状態。色相は動かさず明度と彩度だけ動かす */
-        --color-paper:      oklch(16%   0.014 70);
-        --color-paper-2:    oklch(19.5% 0.016 72);
-        --color-paper-3:    oklch(23%   0.018 74);
-        --color-rule:       oklch(33%   0.016 76);
-        --color-rule-firm:  oklch(52%   0.020 78);
-        --color-muted:      oklch(69%   0.014 80);
-        --color-ink:        oklch(93%   0.012 84);
+        --color-paper:      oklch(16%   0.016 265);
+        --color-paper-2:    oklch(19.5% 0.018 265);
+        --color-paper-3:    oklch(23%   0.020 263);
+        --color-rule:       oklch(33%   0.020 258);
+        --color-rule-firm:  oklch(52%   0.024 254);
+        --color-muted:      oklch(70%   0.020 252);
+        --color-ink:        oklch(93%   0.014 250);
 
-        --color-accent:     oklch(65% 0.15 32);
-        --color-accent-2:   oklch(68% 0.10 250);
-        --color-focus:      oklch(65% 0.15 32);
+        --color-accent:      oklch(70% 0.12 250);
+        --color-accent-warm: oklch(66% 0.15 32);
+        --color-focus:       oklch(70% 0.12 250);
 
         --shadow-hair: 0 1px 2px oklch(4% 0.01 70 / 0.5);
       }
@@ -283,7 +286,7 @@
 
     .fld:disabled { color: var(--color-muted); cursor: default; }
 
-    .fld.is-invalid { border-bottom: var(--rule-firm) solid var(--color-accent); }
+    .fld.is-invalid { border-bottom: var(--rule-firm) solid var(--color-accent-warm); }
 
     /* ── 写真を貼る欄 ───────────────────────────────────────── */
 
@@ -350,11 +353,11 @@
       font-family: var(--font-figure);
       font-size: var(--text-xs);
       letter-spacing: 0.12em;
-      color: var(--color-accent-2);
+      color: var(--color-accent);
       margin-inline-end: var(--space-xs);
     }
 
-    .scanout__note { margin: var(--space-2xs) 0 0; color: var(--color-accent); }
+    .scanout__note { margin: var(--space-2xs) 0 0; color: var(--color-accent-warm); }
     .scanout summary { cursor: pointer; margin-top: var(--space-2xs); }
 
     .scanout pre {
@@ -385,8 +388,8 @@
       letter-spacing: 0.12em;
     }
 
-    .stamp[data-state="first"]  .stamp__box { color: var(--color-accent-2); }
-    .stamp[data-state="repeat"] .stamp__box { color: var(--color-accent); }
+    .stamp[data-state="first"]  .stamp__box { color: var(--color-accent); }
+    .stamp[data-state="repeat"] .stamp__box { color: var(--color-accent-warm); }
 
     .stamp[data-state="load"] .stamp__box {
       color: var(--color-muted);
@@ -416,9 +419,9 @@
       display: none;
       margin: var(--space-md) 0 0;
       padding: var(--space-xs) var(--space-sm);
-      border-inline-start: var(--rule-firm) solid var(--color-accent);
+      border-inline-start: var(--rule-firm) solid var(--color-accent-warm);
       font-size: var(--text-sm);
-      color: var(--color-accent);
+      color: var(--color-accent-warm);
     }
 
     .alert[data-show="true"] { display: block; }
@@ -502,6 +505,24 @@
     /* 交互の地色。行を目で追うための実用で、装飾ではない。
        年の見出しが間に挟まるので、偶奇は JS 側で数える */
     .entry--alt { background: var(--color-paper-2); }
+
+    .entry__mark { display: grid; gap: var(--space-3xs); justify-items: start; }
+
+    /*
+     * 航空会社は 2 レターコードを枠で囲った符号として出す。
+     * 実物のロゴは商標で持ち込めないうえ、台帳の欄外に押す印という
+     * この書式の語彙にも符号のほうが合う。表に無い会社でも必ず出る。
+     */
+    .carrier {
+      padding: var(--space-3xs) var(--space-2xs);
+      border: var(--rule-hair) solid var(--color-rule-firm);
+      font-family: var(--font-figure);
+      font-size: 0.625rem;
+      font-weight: 600;
+      line-height: 1.3;
+      letter-spacing: 0.08em;
+      color: var(--color-ink);
+    }
 
     .entry__day {
       font-family: var(--font-figure);
@@ -604,7 +625,7 @@
       padding: var(--space-sm) var(--space-md);
       background: var(--color-ink);
       color: var(--color-paper);
-      border-inline-start: var(--rule-firm) solid var(--color-accent-2);
+      border-inline-start: var(--rule-firm) solid var(--color-accent);
       font-size: var(--text-sm);
       opacity: 0;
       transform: translateY(6px);
@@ -613,7 +634,7 @@
     }
 
     #toast[data-show="true"] { opacity: 1; transform: none; }
-    #toast[data-kind="error"] { border-inline-start-color: var(--color-accent); }
+    #toast[data-kind="error"] { border-inline-start-color: var(--color-accent-warm); }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -1152,8 +1173,12 @@
       var meta = [route ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
       var day = String(r.date || '').slice(5).replace('-', '.');
 
+      var mark = r.carrier ? '<span class="carrier">' + esc(r.carrier) + '</span>' : '';
+
       return '<div class="entry' + (alt ? ' entry--alt' : '') + '">' +
-        '<div class="entry__day">' + esc(day) + '</div>' +
+        '<div class="entry__mark">' + mark +
+          '<span class="entry__day">' + esc(day) + '</span>' +
+        '</div>' +
         '<div>' +
           '<div class="entry__route' + headClass + '">' + esc(head) + '</div>' +
           '<div class="entry__meta">' + esc(meta) + '</div>' +
