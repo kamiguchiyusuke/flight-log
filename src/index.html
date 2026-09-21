@@ -192,15 +192,6 @@
     .tab:active { color: var(--color-ink); }
     .tab:focus-visible { outline: var(--rule-firm) solid var(--color-focus); outline-offset: 2px; }
 
-    .tab__count {
-      font-family: var(--font-figure);
-      font-size: var(--text-xs);
-      font-weight: 400;
-      letter-spacing: 0;
-      color: var(--color-muted);
-      margin-inline-start: var(--space-2xs);
-    }
-
     .panel { display: none; }
     .panel[data-active="true"] { display: block; }
 
@@ -484,7 +475,7 @@
 
     .ledger__head {
       display: grid;
-      grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr) auto;
       gap: var(--space-sm);
       padding-block: var(--space-2xs);
       border-top: var(--rule-hair) solid var(--color-rule-firm);
@@ -811,6 +802,90 @@
       outline-offset: 2px;
     }
 
+    /* ── サマリ ─────────────────────────────────────────────── */
+
+    .sum__head {
+      display: flex;
+      justify-content: space-between;
+      gap: var(--space-sm);
+      margin-top: var(--space-xl);
+      padding-block: var(--space-2xs);
+      border-bottom: var(--rule-hair) solid var(--color-rule-firm);
+      font-size: 0.625rem;
+      letter-spacing: 0.18em;
+      color: var(--color-muted);
+    }
+
+    /*
+     * 1 行は「名前・棒・数」。棒は幅を比で持たせるだけの罫で、
+     * 数を読まなくても多い少ないが分かる
+     */
+    .stat {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 3.5rem 2.25rem;
+      gap: var(--space-xs);
+      align-items: center;
+      padding-block: var(--space-xs);
+      border-bottom: var(--rule-hair) solid var(--color-rule);
+    }
+
+    /* 航空会社の行だけ、台帳と同じ印を左に置く */
+    .stat--air { grid-template-columns: 1.5rem minmax(0, 1fr) 3.5rem 2.25rem; }
+
+    .stat__mark {
+      display: block;
+      width: 1.5rem;
+      height: 1.5rem;
+      object-fit: contain;
+      background: var(--color-sticker);
+      border: var(--rule-hair) solid var(--color-rule);
+    }
+
+    .stat__code {
+      display: grid;
+      place-items: center;
+      width: 1.5rem;
+      height: 1.5rem;
+      border: var(--rule-hair) solid var(--color-rule-firm);
+      font-family: var(--font-figure);
+      font-size: 0.5625rem;
+      font-weight: 600;
+      line-height: 1;
+      color: var(--color-ink);
+    }
+
+    .stat__label {
+      min-width: 0;
+      font-size: var(--text-sm);
+      overflow-wrap: anywhere;
+    }
+
+    .stat__bar {
+      display: block;
+      height: var(--rule-firm);
+      background: var(--color-rule);
+    }
+
+    .stat__bar i {
+      display: block;
+      height: 100%;
+      background: var(--color-accent);
+    }
+
+    .stat__n {
+      font-family: var(--font-figure);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      text-align: end;
+    }
+
+    .stat__rest {
+      padding-block: var(--space-xs);
+      font-size: var(--text-xs);
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+    }
+
     /* Ft2 · 繰越合計。台帳の頁末にある行をそのまま機能させる */
     .colophon {
       display: flex;
@@ -935,7 +1010,9 @@
       <button type="button" class="tab" id="tab-input" role="tab" aria-selected="true"
               aria-controls="panel-input" data-panel="panel-input">記入</button>
       <button type="button" class="tab" id="tab-log" role="tab" aria-selected="false"
-              aria-controls="panel-log" data-panel="panel-log">台帳<span class="tab__count" id="tabCount"></span></button>
+              aria-controls="panel-log" data-panel="panel-log">記録</button>
+      <button type="button" class="tab" id="tab-summary" role="tab" aria-selected="false"
+              aria-controls="panel-summary" data-panel="panel-summary">サマリ</button>
     </nav>
 
     <section id="panel-input" class="panel" data-active="true" role="tabpanel" aria-labelledby="tab-input">
@@ -1021,10 +1098,14 @@
       <div class="tally" id="tally"></div>
       <p class="ledger__hint" id="ledgerHint" hidden>行をタップすると記入欄で直せます</p>
       <div class="ledger__head" aria-hidden="true">
-        <span></span><span>ROUTE</span><span>AIRFRAME</span>
+        <span>ROUTE</span><span>TYPE</span>
       </div>
       <div id="ledger"><p class="empty">読み込み中…</p></div>
       <footer class="colophon" id="colophon"></footer>
+    </section>
+
+    <section id="panel-summary" class="panel" role="tabpanel" aria-labelledby="tab-summary">
+      <div id="summary"><p class="empty">読み込み中…</p></div>
     </section>
 
   </div>
@@ -1512,7 +1593,6 @@
     function renderLog(rows) {
       var el = $('ledger');
       logRows = rows || [];
-      $('tabCount').textContent = (rows && rows.length) ? rows.length : '';
 
       if (!rows || !rows.length) {
         el.innerHTML = '<p class="empty">まだ記入がありません</p>';
@@ -1552,6 +1632,125 @@
       $('colophon').innerHTML =
         '<span>' + esc(oldest === newest ? newest : oldest + ' — ' + newest) + '</span>' +
         '<span>繰越 ' + rows.length + '</span>';
+
+      renderSummary(rows);
+    }
+
+    /* ---------- サマリの描画 ---------- */
+
+    /*
+     * 台帳と同じ rows から作る。サーバに集計させないのは、
+     * 数える材料が既に手元にあるのに往復を増やす理由が無いため
+     */
+    function renderSummary(rows) {
+      var el = $('summary');
+      if (!rows || !rows.length) {
+        el.innerHTML = '<p class="empty">まだ記入がありません</p>';
+        return;
+      }
+
+      var regs = {}, years = {}, types = {}, airlines = {}, ports = {};
+      rows.forEach(function (r) {
+        if (r.registration) regs[r.registration] = true;
+
+        var y = String(r.date || '').slice(0, 4);
+        if (y) years[y] = (years[y] || 0) + 1;
+
+        if (r.type) types[r.type] = (types[r.type] || 0) + 1;
+
+        // 航空会社はコードで束ねる。同じ会社を和名で書き分けても 1 社に寄る
+        var code = r.carrier || r.airline;
+        if (code) {
+          if (!airlines[code]) {
+            airlines[code] = { n: 0, label: r.airline || code, code: r.carrier || '' };
+          }
+          airlines[code].n++;
+          if (r.airline) airlines[code].label = r.airline;
+        }
+
+        // 空港は出発と到着の両方を数える。経由も往復も等しく「使った回数」
+        [[r.dep, r.depLabel], [r.arr, r.arrLabel]].forEach(function (pt) {
+          if (!pt[0]) return;
+          if (!ports[pt[0]]) ports[pt[0]] = { n: 0, label: pt[1] || pt[0] };
+          ports[pt[0]].n++;
+        });
+      });
+
+      var html =
+        '<div class="tally">' +
+          tallyCell(rows.length, 'FLIGHTS') +
+          tallyCell(Object.keys(regs).length, 'AIRFRAMES') +
+          tallyCell(Object.keys(airlines).length, 'AIRLINES') +
+          tallyCell(Object.keys(ports).length, 'AIRPORTS') +
+        '</div>';
+
+      // 年だけは多い順ではなく新しい順。並びそのものが意味を持つ
+      html += statBlock('年', 'YEAR', Object.keys(years).sort().reverse().map(function (y) {
+        return { label: y, n: years[y] };
+      }), 0);
+
+      html += statBlock('航空会社', 'AIRLINE', byCount(airlines, function (k, v) {
+        return { label: v.label, n: v.n, code: v.code };
+      }), 0);
+
+      html += statBlock('機材型式', 'TYPE', byCount(types, function (k, v) {
+        return { label: k, n: v };
+      }), 0);
+
+      // 空港は 1 フライトで 2 つ増えるので、いずれ行数が効いてくる
+      html += statBlock('空港', 'AIRPORT', byCount(ports, function (k, v) {
+        return { label: v.label, n: v.n };
+      }), 15);
+
+      el.innerHTML = html;
+    }
+
+    function tallyCell(n, label) {
+      return '<span><span class="tally__n">' + n + '</span>' + label + '</span>';
+    }
+
+    /** 連想配列を多い順の配列にする。同数なら名前順にして、並びが毎回ぶれないようにする */
+    function byCount(map, toItem) {
+      return Object.keys(map).map(function (k) { return toItem(k, map[k]); })
+        .sort(function (a, b) {
+          if (b.n !== a.n) return b.n - a.n;
+          return a.label < b.label ? -1 : (a.label > b.label ? 1 : 0);
+        });
+    }
+
+    /** 見出しと行を組む。limit が 0 なら全件、それ以外は残りを 1 行にまとめる */
+    function statBlock(title, latin, items, limit) {
+      if (!items.length) return '';
+
+      var max = 0;
+      items.forEach(function (i) { if (i.n > max) max = i.n; });
+
+      var shown = limit ? items.slice(0, limit) : items;
+      var html = '<div class="sum__head"><span>' + esc(title) +
+        '</span><span>' + latin + '</span></div>';
+
+      html += shown.map(function (i) {
+        var air = i.code !== undefined;
+        var mark = '';
+        if (air) {
+          var logo = i.code ? airlineLogoMap[i.code] : '';
+          mark = logo
+            ? '<img class="stat__mark" src="' + esc(logo) +
+              '" alt="" width="24" height="24" loading="lazy">'
+            : '<span class="stat__code">' + esc(i.code || '') + '</span>';
+        }
+        return '<div class="stat' + (air ? ' stat--air' : '') + '">' + mark +
+          '<span class="stat__label">' + esc(i.label) + '</span>' +
+          '<span class="stat__bar"><i style="width:' +
+            Math.round(i.n / max * 100) + '%"></i></span>' +
+          '<span class="stat__n">' + i.n + '</span>' +
+        '</div>';
+      }).join('');
+
+      if (limit && items.length > limit) {
+        html += '<p class="stat__rest">ほか ' + (items.length - limit) + ' 件</p>';
+      }
+      return html;
     }
 
     function logRow(r, alt) {
