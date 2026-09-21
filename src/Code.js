@@ -167,7 +167,9 @@ function saveFlight(payload) {
   if (!date) throw new Error('搭乗日を入力してください');
   if (!dep) throw new Error('出発空港を入力してください');
   if (!arr) throw new Error('到着空港を入力してください');
-  if (!reg) throw new Error('登録記号を入力してください');
+
+  // 登録記号は任意。機体が分からないまま記録したい場面があるため。
+  // 空なら lookupAircraft_ が 0 回を返し、upsertAircraft_ は何もしない
 
   // 同時実行でidが重複しないようロックを取る
   var lock = LockService.getDocumentLock();
