@@ -22,6 +22,7 @@
       --repeat-bg: #fff3e0;
       --repeat-border: #ef8c00;
       --repeat-text: #7a3e00;
+      --error: #d93025;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -43,6 +44,7 @@
         --repeat-bg: #3a2810;
         --repeat-border: #ef8c00;
         --repeat-text: #ffce8a;
+        --error: #f28b82;
       }
     }
 
@@ -123,6 +125,21 @@
       max-width: 100%;
       text-align: left;
     }
+
+    /* 未入力の必須項目 */
+    input.invalid { border-color: var(--error); }
+
+    .form-error {
+      display: none;
+      font-size: 13px;
+      color: var(--error);
+      border: 1px solid var(--error);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 16px;
+    }
+
+    .form-error.show { display: block; }
 
     /* 入力候補。datalist の代わりに自前で出す */
     .combo-host { position: relative; }
@@ -380,7 +397,7 @@
     }
 
     #toast.show { opacity: 1; transform: translateY(0); }
-    #toast.error { border-left-color: #d93025; }
+    #toast.error { border-left-color: var(--error); }
   </style>
 </head>
 <body>
@@ -393,7 +410,7 @@
     </nav>
 
     <div id="panel-input" class="panel active">
-      <form id="form" class="card" autocomplete="off">
+      <form id="form" class="card" autocomplete="off" novalidate>
         <div class="scan">
           <button type="button" id="scanBtn" class="ghost">📷 画像から読み取る</button>
           <input type="file" id="photo" accept="image/*" tabindex="-1"
@@ -415,12 +432,12 @@
         <div class="field route">
           <div>
             <label for="dep">出発</label>
-            <input id="dep" class="upper" placeholder="HND" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+            <input id="dep" class="upper" required placeholder="HND" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
           </div>
           <div class="arrow">→</div>
           <div>
             <label for="arr">到着</label>
-            <input id="arr" class="upper" placeholder="ITM" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
+            <input id="arr" class="upper" required placeholder="ITM" maxlength="4" autocapitalize="characters" autocorrect="off" spellcheck="false">
           </div>
         </div>
 
@@ -445,6 +462,7 @@
           <input id="note" placeholder="任意">
         </div>
 
+        <div id="formError" class="form-error"></div>
         <button type="submit" id="submit">保存</button>
       </form>
     </div>
@@ -594,10 +612,74 @@
       });
     });
 
+    /* ---------- 入力チェック ---------- */
+
+    /*
+     * ブラウザ任せの検証（required + 吹き出し）は使わない。
+     * iOS の Safari は required で送信を止めるのに吹き出しを出さないため、
+     * 「保存を押しても何も起きない」という見え方になってしまう。
+     * フォームには novalidate を付けてある。
+     *
+     * 注意書きは各欄の下ではなく保存ボタンの直上にまとめて出す。
+     * 区間の 2 欄はグリッドの列なので、列の中に文字を足すと
+     * 入力欄の高さがずれてしまうため。
+     */
+
+    var REQUIRED_FIELDS = [
+      { id: 'date', label: '搭乗日' },
+      { id: 'dep', label: '出発空港' },
+      { id: 'arr', label: '到着空港' },
+      { id: 'registration', label: '登録記号' }
+    ];
+
+    /** 未入力の必須項目を赤く示し、最初の1つへ移動する。問題なければ true */
+    function validateForm() {
+      var bad = [];
+
+      REQUIRED_FIELDS.forEach(function (f) {
+        var empty = !$(f.id).value.trim();
+        $(f.id).classList.toggle('invalid', empty);
+        if (empty) bad.push(f);
+      });
+
+      if (!bad.length) {
+        setFormError('');
+        return true;
+      }
+
+      var names = bad.map(function (f) { return f.label; }).join('、');
+      setFormError('未入力の項目があります: ' + names);
+      toast(bad[0].label + 'を入力してください', true);
+      $(bad[0].id).focus();
+      return false;
+    }
+
+    function setFormError(msg) {
+      var el = $('formError');
+      el.textContent = msg;
+      el.className = msg ? 'form-error show' : 'form-error';
+    }
+
+    function clearFieldErrors() {
+      REQUIRED_FIELDS.forEach(function (f) { $(f.id).classList.remove('invalid'); });
+      setFormError('');
+    }
+
+    // 直し始めたら赤枠と注意書きは引っ込める
+    REQUIRED_FIELDS.forEach(function (f) {
+      $(f.id).addEventListener('input', function () {
+        if (!$(f.id).classList.contains('invalid')) return;
+        $(f.id).classList.remove('invalid');
+        if (!document.querySelector('input.invalid')) setFormError('');
+      });
+    });
+
     /* ---------- 保存 ---------- */
 
     $('form').addEventListener('submit', function (e) {
       e.preventDefault();
+
+      if (!validateForm()) return;
 
       // debounce 待ちの照合が残っていても、保存は保存として進める
       clearTimeout(lookupTimer);
@@ -636,6 +718,7 @@
 
     function resetForm() {
       hideSuggest();
+      clearFieldErrors();
       // 搭乗日は残す。同じ日に複数レグ乗ることがあるため
       ['flightNo', 'dep', 'arr', 'registration', 'aircraftType', 'airline', 'note'].forEach(function (id) {
         $(id).value = '';
@@ -739,6 +822,8 @@
 
     function applyScan(res) {
       setScanning(false);
+      // 読み取りで埋まった欄の注意書きは消す
+      clearFieldErrors();
 
       var isBlank = function (id) {
         if (id === 'date') return !dateTouched;

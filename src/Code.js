@@ -112,7 +112,14 @@ function saveFlight(payload) {
   var airline = String(p.airline || '').trim();
   var type = String(p.aircraftType || '').trim();
 
+  var dep = String(p.dep || '').trim().toUpperCase();
+  var arr = String(p.arr || '').trim().toUpperCase();
+
+  // 画面でも弾いているが、ウェブアプリは URL を知っていれば誰でも叩けるので
+  // ここでも確かめる
   if (!date) throw new Error('搭乗日を入力してください');
+  if (!dep) throw new Error('出発空港を入力してください');
+  if (!arr) throw new Error('到着空港を入力してください');
   if (!reg) throw new Error('登録記号を入力してください');
 
   // 同時実行でidが重複しないようロックを取る
@@ -125,8 +132,8 @@ function saveFlight(payload) {
       date: date,
       flight_no: flightNo,
       airline: airline,
-      dep: String(p.dep || '').trim().toUpperCase(),
-      arr: String(p.arr || '').trim().toUpperCase(),
+      dep: dep,
+      arr: arr,
       aircraft_type: type,
       registration: reg,
       note: String(p.note || '').trim()
