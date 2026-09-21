@@ -317,13 +317,6 @@
     .fld--fig { font-family: var(--font-figure); letter-spacing: 0.04em; }
     .fld--upper { text-transform: uppercase; }
 
-    .fld--reg {
-      font-family: var(--font-figure);
-      font-size: var(--text-lg);
-      font-weight: 600;
-      letter-spacing: 0.06em;
-    }
-
     /* iOS の Safari は input[type=date] に固有の幅を持たせるため、
        width:100% が効かず欄からはみ出す。appearance を落として外す */
     input[type="date"].fld {
@@ -421,45 +414,6 @@
       line-height: 1.5;
       white-space: pre-wrap;
       word-break: break-all;
-    }
-
-    /* ── 照合印 ─────────────────────────────────────────────── */
-
-    .stamp { display: none; margin-top: var(--space-sm); }
-    .stamp[data-state] { display: block; }
-
-    .stamp__box {
-      display: inline-flex;
-      align-items: baseline;
-      gap: var(--space-xs);
-      padding: var(--space-2xs) var(--space-sm);
-      border: var(--rule-firm) solid currentColor;
-      letter-spacing: 0.12em;
-    }
-
-    .stamp[data-state="first"]  .stamp__box { color: var(--color-accent); }
-    .stamp[data-state="repeat"] .stamp__box { color: var(--color-accent-warm); }
-
-    .stamp[data-state="load"] .stamp__box {
-      color: var(--color-muted);
-      border-width: var(--rule-hair);
-      border-style: dashed;
-    }
-
-    .stamp__n {
-      font-family: var(--font-figure);
-      font-size: var(--text-lg);
-      font-weight: 600;
-      line-height: 1;
-    }
-
-    .stamp__word { font-size: var(--text-sm); font-weight: 600; }
-
-    .stamp__prev {
-      margin: var(--space-2xs) 0 0;
-      font-size: var(--text-xs);
-      letter-spacing: 0.04em;
-      color: var(--color-muted);
     }
 
     /* ── 記入の確認 ─────────────────────────────────────────── */
@@ -1033,9 +987,8 @@
 
         <div class="row">
           <label class="lab" for="registration">登録記号<span class="lab__lat">REGISTRATION</span></label>
-          <input class="fld fld--reg fld--upper" id="registration" placeholder="JA873A（任意）"
+          <input class="fld fld--fig fld--upper" id="registration" placeholder="JA873A（任意）"
                  autocapitalize="characters" autocorrect="off" spellcheck="false">
-          <div class="stamp" id="stamp"></div>
         </div>
 
         <div class="row">
@@ -1083,7 +1036,6 @@
     var $ = function (id) { return document.getElementById(id); };
 
     var submitBtn = $('submit');
-    var stampEl = $('stamp');
     var toastTimer = null;
     var scanning = false;
     var dateTouched = false;
@@ -1136,59 +1088,38 @@
       lookupTimer = setTimeout(runLookup, 500);
     }
 
+    /*
+     * 登録記号から型式・航空会社を補う。機体マスタを引くだけで、
+     * 何回目かは数えない。
+     *
+     * 記入の助けでしかないので、失敗しても画面には出さない。
+     * 打っている最中に知らせを出されるほうが邪魔だし、本当に
+     * 通信が駄目なら保存のときに分かる
+     */
     function runLookup() {
       clearTimeout(lookupTimer);
       var reg = $('registration').value.trim().toUpperCase();
 
-      if (!reg) { lastLookedUp = ''; setStamp('', ''); return; }
+      if (!reg) { lastLookedUp = ''; return; }
       if (reg === lastLookedUp) return;
       lastLookedUp = reg;
-
-      setStamp('load', '<span class="stamp__box"><span class="stamp__word">照合中</span></span>');
 
       google.script.run
         .withSuccessHandler(function (res) {
           // 照合中に入力が変わっていたら、古い結果は捨てる
           if ($('registration').value.trim().toUpperCase() !== reg) return;
-
-          if (!res.found) {
-            setStamp('first', '<span class="stamp__box"><span class="stamp__word">初 搭 乗</span></span>');
-            return;
-          }
-
-          // 機体マスタが知っている型式・航空会社で上書きする
           if (res.type) $('aircraftType').value = res.type;
           if (res.airline) $('airline').value = res.airline;
-
-          var html = '<span class="stamp__box"><span class="stamp__n">' + (res.timesFlown + 1) +
-            '</span><span class="stamp__word">回目の搭乗</span></span>';
-
-          var last = res.lastFlight;
-          if (last) {
-            var dep = last.depLabel || last.dep;
-            var arr = last.arrLabel || last.arr;
-            html += '<p class="stamp__prev">前回 ' + esc(last.date) +
-              (last.flightNo ? ' · ' + esc(last.flightNo) : '') +
-              (dep || arr ? ' · ' + esc(dep) + '→' + esc(arr) : '') + '</p>';
-          }
-          setStamp('repeat', html);
         })
         .withFailureHandler(function (err) {
           lastLookedUp = '';
-          setStamp('', '');
-          toast(errorText(err), true);
+          if (window.console) console.log('登録記号の照合を飛ばしました: ' + errorText(err));
         })
-        .lookupAircraft(reg, editingId);
+        .lookupAircraft(reg);
     }
 
     $('registration').addEventListener('input', scheduleLookup);
     $('registration').addEventListener('blur', runLookup);
-
-    function setStamp(state, html) {
-      if (state) stampEl.setAttribute('data-state', state);
-      else stampEl.removeAttribute('data-state');
-      stampEl.innerHTML = html;
-    }
 
     /* ---------- 便名から航空会社・区間を補完 ---------- */
 
@@ -1396,11 +1327,7 @@
           renderLogos(res.logos);
           renderLog(res.log);
           renderSuggestions(res.suggestions);
-          // 登録記号を書かなかった行は数える相手がいないので回数を言わない
-          toast((res.registration
-              ? res.registration + ' · ' + res.timesFlown + '回目として'
-              : '') +
-            (res.edited ? '直しました' : '記入しました'));
+          toast(res.edited ? '直しました' : '記入しました');
           resetForm();
         })
         .withFailureHandler(function (err) {
@@ -1427,7 +1354,6 @@
         $(id).value = '';
       });
       lastLookedUp = '';
-      setStamp('', '');
       updateAirlineSlot();
       $('scanResult').innerHTML = '';
       // 保存直後に候補が勝手に開かないよう、フォーカス移動の間だけ抑止する
@@ -1772,7 +1698,6 @@
       clearFieldErrors();
       $('scanResult').innerHTML = '';
       lastLookedUp = '';
-      setStamp('', '');
 
       $('editingLabel').textContent =
         [r.date, r.flightNo, r.registration].filter(Boolean).join(' · ') + ' を編集中';

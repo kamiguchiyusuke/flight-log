@@ -44,54 +44,36 @@ function airlineLogos() {
 }
 
 /**
- * 登録記号を照合する。このアプリの中核。
- * 機体マスタと過去の搭乗履歴の両方を見て、搭乗回数と前回フライトを返す。
+ * 登録記号から型式と航空会社を引く。記入の補完に使う。
  *
- * 搭乗回数は aircraft シートに保存せず flights から都度数える。
- * ログを手で消しても数がズレないため。
+ * 機体マスタを先に見て、無ければ過去の搭乗履歴から拾う。
+ * マスタは「空から育てる」ので、最初の数回は履歴しか手がかりがない。
  *
- * excludeId を渡すと、その id の記録を数えない。編集中に「その記録自身」を
- * past として数えてしまうと、3 回目の記録を直しているのに 4 回目と出る。
+ * 同じ機体に何回乗ったかは数えない。そこは見ない方針にした。
  */
-function lookupAircraft(registration, excludeId) {
+function lookupAircraft(registration) {
   var key = regKey_(registration);
-  if (!key) return { found: false, type: '', airline: '', timesFlown: 0, lastFlight: null };
-
-  var skip = Number(excludeId) || 0;
+  if (!key) return { found: false, type: '', airline: '' };
 
   var master = readAll_(SHEET_AIRCRAFT, AIRCRAFT_COLUMNS).filter(function (a) {
     return regKey_(a.registration) === key;
   })[0];
 
-  var flights = readAll_(SHEET_FLIGHTS, FLIGHT_COLUMNS)
-    .filter(function (f) { return regKey_(f.registration) === key && Number(f.id) !== skip; })
+  var last = readAll_(SHEET_FLIGHTS, FLIGHT_COLUMNS)
+    .filter(function (f) { return regKey_(f.registration) === key; })
     .map(function (f) {
       return {
         date: toDateString_(f.date),
-        flightNo: String(f.flight_no || ''),
-        dep: String(f.dep || ''),
-        arr: String(f.arr || ''),
         type: String(f.aircraft_type || ''),
         airline: String(f.airline || '')
       };
     })
-    .sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
-
-  var last = flights[0] || null;
+    .sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); })[0] || null;
 
   return {
     found: !!(master || last),
     type: (master && master.aircraft_type) || (last && last.type) || '',
-    airline: (master && master.airline) || (last && last.airline) || '',
-    timesFlown: flights.length,
-    lastFlight: last ? {
-      date: last.date,
-      flightNo: last.flightNo,
-      dep: last.dep,
-      arr: last.arr,
-      depLabel: airportLabel_(last.dep),
-      arrLabel: airportLabel_(last.arr)
-    } : null
+    airline: (master && master.airline) || (last && last.airline) || ''
   };
 }
 
@@ -105,7 +87,7 @@ function lookupFlightNo(flightNo) {
     airline: airlineFromFlightNo_(norm),
     carrier: carrier,
     logo: '',
-    dep: '', arr: '', type: '', timesFlown: 0
+    dep: '', arr: '', type: ''
   };
   if (!norm) return result;
 
@@ -135,7 +117,6 @@ function lookupFlightNo(flightNo) {
     })
     .sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : 0); });
 
-  result.timesFlown = past.length;
   if (past.length) {
     result.dep = past[0].dep;
     result.arr = past[0].arr;
@@ -148,7 +129,6 @@ function lookupFlightNo(flightNo) {
 /**
  * 1フライトを保存する。flights に追記し、機体マスタを upsert する。
  * payload.id があれば追記ではなくその行を書き換える（台帳からの編集）。
- * 戻り値の timesFlown は「この記録が何回目の搭乗か」。
  */
 function saveFlight(payload) {
   var p = payload || {};
@@ -169,15 +149,12 @@ function saveFlight(payload) {
   if (!arr) throw new Error('到着空港を入力してください');
 
   // 登録記号は任意。機体が分からないまま記録したい場面があるため。
-  // 空なら lookupAircraft_ が 0 回を返し、upsertAircraft_ は何もしない
+  // 空なら upsertAircraft_ は何もしない
 
   // 同時実行でidが重複しないようロックを取る
   var lock = LockService.getDocumentLock();
   lock.waitLock(10000);
   try {
-    // 編集中は自分自身を past から外す。でないと 3 回目を直しているのに 4 回目と出る
-    var before = lookupAircraft(reg, editId).timesFlown;
-
     var record = {
       date: date,
       flight_no: flightNo,
@@ -217,7 +194,6 @@ function saveFlight(payload) {
       id: id,
       edited: !!editId,
       registration: reg,
-      timesFlown: before + 1,
       log: flightLog(),
       logos: airlineLogos(),
       suggestions: suggestions()
