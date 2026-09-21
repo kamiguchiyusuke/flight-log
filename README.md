@@ -20,7 +20,6 @@ src/
 ├── Code.js           doGet と画面から呼ぶ API
 ├── index.html        スマホ用の画面（HTML/CSS/JS 一体）
 ├── Ocr.js            画像から搭乗情報を読み取る（入口とドライブの OCR）
-├── tokens.css        デザイントークンの控え（GASは外部CSSを配信できないため index.html にも同値を持つ）
 ├── Gemini.js         画像読み取りの Gemini 版（キーがあれば優先される）
 ├── Logos.js          航空会社ロゴの取得（一度だけ外部から取り、以後は自前）
 └── DevSeed.js        動作確認用のサンプルデータ投入（本運用前に削除してよい）
@@ -323,7 +322,9 @@ blur で閉じると、リストをスクロールしただけで消えてしま
   - `AIRLINE_CODES` に無い会社でも便名から取れるので必ず出る
 - 入力欄は箱ではなく罫線。フォーカスすると行の罫が赤くなる
 
-トークンは `tokens.css` にも同じ値を置いてある。値を変えるときは両方そろえること。
+トークンの定義は `src/index.html` の `<style>` 冒頭だけにある。
+GAS の HtmlService は外部 CSS を配信できないので、別ファイルに切り出しても
+手で同期するしかなく、実際にズレる。控えは置かない。
 
 この設計は [Hallmark](https://github.com/Nutlope/hallmark) スキルの手順に沿って作った。
 判断の記録は `.hallmark/log.json`、`src/index.html` 冒頭のスタンプにある。
