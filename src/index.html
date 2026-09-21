@@ -1605,7 +1605,11 @@
 
       // 日付は空港名の下、補足の行の先頭に置く
       var day = String(r.date || '').slice(5).replace('-', '.');
-      var meta = [day, hasRoute ? r.flightNo : '', r.airline].filter(Boolean).join(' · ');
+
+      // 航空会社名は左の印が語るので書かない。ただし印を出せない
+      // （ロゴもコードも無い）行だけは、何の便か分からなくなるので書く
+      var meta = [day, hasRoute ? r.flightNo : '', r.carrier ? '' : r.airline]
+        .filter(Boolean).join(' · ');
 
       var logo = r.carrier ? airlineLogoMap[r.carrier] : '';
       var badge = '';
