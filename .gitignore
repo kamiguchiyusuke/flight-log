@@ -1,0 +1,9 @@
+# clasp を後で導入した場合に生成される。scriptId を含むので手元だけに置く
+.clasp.json
+
+node_modules/
+
+# Windows / OneDrive
+Thumbs.db
+desktop.ini
+*.log
