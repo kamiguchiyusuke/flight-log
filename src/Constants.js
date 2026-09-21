@@ -32,7 +32,9 @@ var AIRCRAFT_COLUMNS = [
 
 /**
  * airlines シート（ロゴのマスタ）の列。
- * logo は data URI でも URL でも受け付ける。空なら台帳は 2 レターコードを出す。
+ * logo は data URI でも URL でも受け付ける。
+ * 空欄は「まだ取っていない」で、次の保存時に取りに行く。
+ * 取りに行かせたくない場合は AIRLINE_LOGO_NONE を書く。
  */
 var AIRLINE_COLUMNS = [
   'code',
@@ -49,6 +51,13 @@ var AIRLINE_COLUMNS = [
  * 配信元を変えるときはここ 1 行だけ直す。
  */
 var AIRLINE_LOGO_URL = 'https://images.kiwi.com/airlines/64/{code}.png';
+
+/**
+ * airlines シートの logo 列にこれを書くと「この会社はロゴ不要」の意思表示になり、
+ * 二度と取りに行かない。空欄は「まだ取っていない」を意味するので取りに行く。
+ * 変なロゴが付いた会社は、セルを空にするのではなくこれを入れる。
+ */
+var AIRLINE_LOGO_NONE = '-';
 
 /**
  * 便名の頭2文字（IATA 航空会社コード）→ 航空会社名。

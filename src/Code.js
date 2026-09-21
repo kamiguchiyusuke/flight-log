@@ -28,14 +28,16 @@ function bootstrap() {
  *
  * 行ごとではなくマップで返す。同じ会社が何行あっても base64 は 1 つで済み、
  * 台帳が育っても送信量が増えない。
- * ロゴが空の会社は含めない。含めないことが「コード表示でよい」の合図になる。
+ * ここに載らなかった会社は、台帳では 2 レターコードの枠で出る。
  */
 function airlineLogos() {
   var out = {};
   readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).forEach(function (a) {
     var code = String(a.code || '').trim().toUpperCase();
     var logo = String(a.logo || '').trim();
-    if (code && logo) out[code] = logo;
+    // 画像として成立する値だけ通す。AIRLINE_LOGO_NONE やセルの打ち間違いが
+    // そのまま <img src> に流れ込むのを防ぐ
+    if (code && /^(data:|https?:)/.test(logo)) out[code] = logo;
   });
   return out;
 }

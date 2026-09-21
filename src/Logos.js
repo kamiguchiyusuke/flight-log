@@ -9,19 +9,22 @@
  */
 
 /**
- * この航空会社コードの行が airlines に無ければ、ロゴを取りに行って作る。
+ * この航空会社コードのロゴがまだ無ければ取りに行く。
  *
- * 行が既にある場合は中身を見ずに何もしない。ロゴ列を空にしてあるのは
- * 「この会社はコード表示でよい」という意思表示なので、勝手に埋め直さない。
+ * airlines シートの logo 列を 3 通りに読み分ける。
+ *   空欄      → まだ取っていない。取りに行く（手で行だけ作っておけば埋まる）
+ *   LOGO_NONE → この会社はコード表示でよい、という意思表示。取りに行かない
+ *   それ以外  → 既にロゴがある。触らない
  */
 function ensureAirlineLogo_(code) {
   var c = String(code || '').trim().toUpperCase();
   if (!c) return;
 
-  var known = readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).some(function (a) {
-    return String(a.code || '').trim().toUpperCase() === c;
+  var settled = readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).some(function (a) {
+    return String(a.code || '').trim().toUpperCase() === c
+      && String(a.logo || '').trim() !== '';
   });
-  if (known) return;
+  if (settled) return;
 
   var logo = fetchAirlineLogo_(c);
 
@@ -75,13 +78,15 @@ function fetchAirlineLogos() {
   var codes = Object.keys(used).sort();
   if (!codes.length) return logoReport_('搭乗履歴に航空会社コードが見つかりませんでした');
 
-  // シートは最初に一度だけ読む。コードごとに読み直すと行数分の往復になる
-  var known = {};
+  // シートは最初に一度だけ読む。コードごとに読み直すと行数分の往復になる。
+  // logo 列が空の行は「行はあるがまだ取っていない」なので補充の対象に含める
+  var settled = {};
   readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).forEach(function (a) {
-    known[String(a.code || '').trim().toUpperCase()] = true;
+    if (String(a.logo || '').trim() === '') return;
+    settled[String(a.code || '').trim().toUpperCase()] = true;
   });
 
-  var missing = codes.filter(function (c) { return !known[c]; });
+  var missing = codes.filter(function (c) { return !settled[c]; });
   if (!missing.length) {
     return logoReport_('新しく取得する会社はありません（' + codes.length + ' 社すべて登録済み）');
   }
