@@ -568,7 +568,7 @@
     .entry {
       display: grid;
       grid-template-columns: 2.75rem minmax(0, 1fr);
-      gap: var(--space-sm);
+      gap: var(--space-xs);
       align-items: center;
       padding-block: var(--space-xs);
 
@@ -588,6 +588,14 @@
        * これで行の要素がすべて同じ高さに並ぶ
        */
       --leg-offset: calc(var(--text-xs) * 1.55 + var(--space-2xs));
+
+      /*
+       * 飛行機と日付を持ち上げる量。日付がぶら下がるぶん、この二つは
+       * ひと組として行の中心より --leg-offset の半分だけ下に寄る。
+       * その半分だけ戻す。全部戻すと飛行機が空港名から浮き、
+       * 日付が空港名と同じ高さに入り込んで窮屈になる
+       */
+      --leg-lift: calc(var(--leg-offset) / 4);
       border-bottom: var(--rule-hair) solid var(--color-rule);
     }
 
@@ -618,7 +626,7 @@
     .entry__body {
       display: grid;
       grid-template-columns: minmax(0, 1fr) minmax(var(--craft-col), auto);
-      gap: var(--space-sm);
+      gap: var(--space-xs);
       align-items: start;
     }
 
@@ -655,6 +663,9 @@
       overflow-wrap: anywhere;
     }
 
+    /* 区間が片側しかない行。飛行機も相手もいないので 3 列ぜんぶ使う */
+    .entry__port:only-child { grid-column: 1 / -1; }
+
     .entry__port--arr { text-align: end; }
     .entry__port--none { font-weight: 400; color: var(--color-muted); }
 
@@ -673,6 +684,7 @@
        * 両脇は伸び縮みする列なので、普段の行では十分に空く
        */
       height: calc(var(--port-size) * var(--port-line));
+      margin-block-start: calc(var(--leg-lift) * -1);
       color: var(--color-rule-firm);
     }
 
@@ -744,6 +756,11 @@
     .entry__meta {
       display: block;
       min-width: 0;
+      /*
+       * 持ち上げたぶんを下に足し返す。本文の高さが変わらないので、
+       * 行の高さも空港名が行の中心に乗っていることも保たれる
+       */
+      margin-block: calc(var(--leg-lift) * -1) var(--leg-lift);
       /* 飛行機は leg の中央にあるので、中央寄せにすればその真下に来る */
       text-align: center;
       overflow-wrap: anywhere;
@@ -934,17 +951,11 @@
      * 羽田(HND) 程度なら 1 行に収まるところまで落とす
      */
     @media (max-width: 22.5rem) {
-      /*
-       * 狭い画面では列の間を詰める。鹿児島(KOJ) のような区間が
-       * 0.6px 差で折り返し判定に倒れるので、余裕を作っておく
-       */
       .entry {
         --port-size: var(--text-sm);
         /* 型式も一段小さくなるので、列もそのぶん詰める */
         --craft-col: 3.5rem;
-        gap: var(--space-xs);
       }
-      .entry__body { gap: var(--space-xs); }
       .entry__craft { font-size: var(--text-xs); }
     }
 
