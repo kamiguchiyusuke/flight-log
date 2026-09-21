@@ -921,6 +921,7 @@
     var editingId = 0;      // 0 なら新規記入、それ以外は台帳のその id を書き換える
     var logRows = [];       // 台帳の最新データ。編集で元の値を引くのに使う
     var suppressSuggest = false;
+    var carrierByName = {};   // 航空会社名 → コード。起動時にサーバから受け取る
 
     /* ---------- タブ ---------- */
 
@@ -946,6 +947,7 @@
         if (!$('date').value) $('date').value = data.today;
         renderSuggestions(data.suggestions);
         renderLogos(data.logos);
+        if (data.carriers) carrierByName = data.carriers;
         renderLog(data.log);
         updateAirlineSlot();
       })
@@ -1053,6 +1055,26 @@
       });
     });
 
+    $('airline').addEventListener('input', updateAirlineSlot);
+
+    $('airline').addEventListener('change', function () {
+      updateAirlineSlot();
+
+      // 便名が無くても航空会社名からコードが引けたなら、その時点で取りに行く
+      var code = currentCarrier();
+      if (!code || airlineLogoMap[code]) return;
+
+      google.script.run
+        .withSuccessHandler(function (res) {
+          if (!res.logo) return;
+          airlineLogoMap[res.code] = res.logo;
+          updateAirlineSlot();
+          renderLog(logRows);
+        })
+        .withFailureHandler(function () { /* ロゴが無いだけなので黙って無視する */ })
+        .ensureLogo(code);
+    });
+
     $('date').addEventListener('change', function () { dateTouched = true; });
 
     /* ---------- 航空会社のロゴ枠 ---------- */
@@ -1067,7 +1089,15 @@
       return m ? m[1] : '';
     }
 
-    function currentCarrier() { return carrierFromFlightNo($('flightNo').value); }
+    /*
+     * いま記入している会社のコード。便名を優先し、無ければ航空会社名から引く。
+     * 便名を入れずに航空会社だけ書く記入が普通にあるので、便名だけに頼らない。
+     */
+    function currentCarrier() {
+      return carrierFromFlightNo($('flightNo').value)
+        || carrierByName[$('airline').value.trim()]
+        || '';
+    }
 
     /** いまの便名に対応する会社のロゴ枠を描く */
     function updateAirlineSlot() {

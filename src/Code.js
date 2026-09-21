@@ -19,6 +19,7 @@ function bootstrap() {
     suggestions: suggestions(),
     log: flightLog(),
     logos: airlineLogos(),
+    carriers: carriersByName(),
     today: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')
   };
 }
@@ -204,7 +205,7 @@ function saveFlight(payload) {
     // 「空から育てる」。UrlFetchApp は同期なので、配信元が落ちていたり
     // 遅かったりしても保存そのものは絶対に巻き込まないよう握り潰す
     try {
-      ensureAirlineLogo_(carrierCode_(flightNo));
+      ensureAirlineLogo_(carrierOf_(flightNo, airline));
     } catch (e) {
       Logger.log('ロゴの取得を飛ばしました: ' + e.message);
     }
@@ -222,6 +223,32 @@ function saveFlight(payload) {
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 航空会社名 → コード の対応表。画面が便名なしでもコードを出せるようにする。
+ * 32 件なので送っても 2KB 程度。
+ */
+function carriersByName() {
+  var out = {};
+  Object.keys(AIRLINE_CODES).forEach(function (c) { out[AIRLINE_CODES[c]] = c; });
+  return out;
+}
+
+/**
+ * この会社のロゴがまだ無ければ取りに行き、結果を返す。
+ * 航空会社欄を直接編集したときに画面から呼ぶ。
+ */
+function ensureLogo(code) {
+  var c = String(code || '').trim().toUpperCase();
+  if (!c) return { code: '', logo: '' };
+
+  try {
+    ensureAirlineLogo_(c);
+  } catch (e) {
+    Logger.log('ロゴの取得を飛ばしました: ' + e.message);
+  }
+  return { code: c, logo: airlineLogos()[c] || '' };
 }
 
 /**
@@ -252,7 +279,7 @@ function flightLog() {
         id: Number(f.id) || 0,
         date: toDateString_(f.date),
         flightNo: String(f.flight_no || ''),
-        carrier: carrierCode_(f.flight_no),
+        carrier: carrierOf_(f.flight_no, f.airline),
         airline: String(f.airline || ''),
         dep: String(f.dep || ''),
         arr: String(f.arr || ''),
@@ -310,6 +337,30 @@ function normalizeFlightNo_(v) {
 function carrierCode_(flightNo) {
   var m = normalizeFlightNo_(flightNo).match(/^([A-Z0-9]{2})\d/);
   return m ? m[1] : '';
+}
+
+/**
+ * 航空会社名からコードを引く。AIRLINE_CODES の逆引き。
+ *
+ * 便名を入れずに航空会社だけ書く記入が普通にあるので、
+ * コードの手がかりを便名だけに頼らない。
+ */
+function carrierFromAirlineName_(name) {
+  var n = String(name === null || name === undefined ? '' : name).trim();
+  if (!n) return '';
+
+  var codes = Object.keys(AIRLINE_CODES);
+  for (var i = 0; i < codes.length; i++) {
+    if (AIRLINE_CODES[codes[i]] === n) return codes[i];
+  }
+  return '';
+}
+
+/**
+ * その記録の航空会社コード。便名を優先し、無ければ航空会社名から引く。
+ */
+function carrierOf_(flightNo, airline) {
+  return carrierCode_(flightNo) || carrierFromAirlineName_(airline);
 }
 
 /** 便名の頭2文字から航空会社名を引く。表になければ空文字 */
