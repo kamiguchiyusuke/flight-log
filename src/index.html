@@ -767,9 +767,6 @@
     /* ── サマリ ─────────────────────────────────────────────── */
 
     .sum__head {
-      display: flex;
-      justify-content: space-between;
-      gap: var(--space-sm);
       margin-top: var(--space-xl);
       padding-block: var(--space-2xs);
       border-bottom: var(--rule-hair) solid var(--color-rule-firm);
@@ -1642,20 +1639,20 @@
         '</div>';
 
       // 年だけは多い順ではなく新しい順。並びそのものが意味を持つ
-      html += statBlock('年', 'YEAR', Object.keys(years).sort().reverse().map(function (y) {
+      html += statBlock('YEAR', Object.keys(years).sort().reverse().map(function (y) {
         return { label: y, n: years[y] };
       }), 0);
 
-      html += statBlock('航空会社', 'AIRLINE', byCount(airlines, function (k, v) {
+      html += statBlock('AIRLINE', byCount(airlines, function (k, v) {
         return { label: v.label, n: v.n, code: v.code };
       }), 0);
 
-      html += statBlock('機材型式', 'TYPE', byCount(types, function (k, v) {
+      html += statBlock('TYPE', byCount(types, function (k, v) {
         return { label: k, n: v };
       }), 0);
 
       // 空港は 1 フライトで 2 つ増えるので、いずれ行数が効いてくる
-      html += statBlock('空港', 'AIRPORT', byCount(ports, function (k, v) {
+      html += statBlock('AIRPORT', byCount(ports, function (k, v) {
         return { label: v.label, n: v.n };
       }), 15);
 
@@ -1676,15 +1673,14 @@
     }
 
     /** 見出しと行を組む。limit が 0 なら全件、それ以外は残りを 1 行にまとめる */
-    function statBlock(title, latin, items, limit) {
+    function statBlock(latin, items, limit) {
       if (!items.length) return '';
 
       var max = 0;
       items.forEach(function (i) { if (i.n > max) max = i.n; });
 
       var shown = limit ? items.slice(0, limit) : items;
-      var html = '<div class="sum__head"><span>' + esc(title) +
-        '</span><span>' + latin + '</span></div>';
+      var html = '<div class="sum__head">' + latin + '</div>';
 
       html += shown.map(function (i) {
         var air = i.code !== undefined;
