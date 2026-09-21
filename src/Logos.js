@@ -75,16 +75,20 @@ function fetchAirlineLogos() {
     if (c) used[c] = true;
   });
 
-  var codes = Object.keys(used).sort();
-  if (!codes.length) return logoReport_('搭乗履歴に航空会社コードが見つかりませんでした');
-
-  // シートは最初に一度だけ読む。コードごとに読み直すと行数分の往復になる。
-  // logo 列が空の行は「行はあるがまだ取っていない」なので補充の対象に含める
+  // シートは最初に一度だけ読む。コードごとに読み直すと行数分の往復になる
   var settled = {};
   readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).forEach(function (a) {
-    if (String(a.logo || '').trim() === '') return;
-    settled[String(a.code || '').trim().toUpperCase()] = true;
+    var c = String(a.code || '').trim().toUpperCase();
+    if (!c) return;
+
+    // logo 列が空の行は「行はあるがまだ取っていない」。手で足した行が
+    // ここに来る。搭乗履歴だけを見ていると永久に埋まらないので拾う
+    if (String(a.logo || '').trim() === '') used[c] = true;
+    else settled[c] = true;
   });
+
+  var codes = Object.keys(used).sort();
+  if (!codes.length) return logoReport_('取りに行く航空会社がありません');
 
   var missing = codes.filter(function (c) { return !settled[c]; });
   if (!missing.length) {

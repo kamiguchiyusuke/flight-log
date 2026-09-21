@@ -19,6 +19,7 @@ function bootstrap() {
     suggestions: suggestions(),
     log: flightLog(),
     logos: airlineLogos(),
+    airlines: airlineList(),
     today: Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd')
   };
 }
@@ -198,11 +199,65 @@ function saveFlight(payload) {
       timesFlown: before + 1,
       log: flightLog(),
       logos: airlineLogos(),
+      airlines: airlineList(),
       suggestions: suggestions()
     };
   } finally {
     lock.releaseLock();
   }
+}
+
+/**
+ * 航空会社の一覧。管理タブが使う。
+ *
+ * ロゴ画像そのものは載せない。画面は bootstrap() で受け取った logos を
+ * 既に持っているので、ここでは「どの状態か」だけ返せば足りる。
+ * 32 社分の base64 を二重に送ると数十 KB の無駄になる。
+ *
+ * state は airlines シートの logo 列の読み分け。
+ *   has   画像がある
+ *   none  AIRLINE_LOGO_NONE。保存時の自動取得を止めてある
+ *   unset 空、または行が無い
+ *
+ * この区別はシートを見ないと分からない（画面側の logos にはどちらも載らない）
+ * ので、サーバで判定して渡す。
+ */
+function airlineList() {
+  var counts = {};
+  readAll_(SHEET_FLIGHTS, FLIGHT_COLUMNS).forEach(function (f) {
+    var c = carrierCode_(f.flight_no);
+    if (c) counts[c] = (counts[c] || 0) + 1;
+  });
+
+  var cells = {};
+  readAll_(SHEET_AIRLINES, AIRLINE_COLUMNS).forEach(function (a) {
+    var c = String(a.code || '').trim().toUpperCase();
+    if (c) cells[c] = String(a.logo || '').trim();
+  });
+
+  // 表に載っている会社・乗ったことのある会社・シートにある会社をすべて集める
+  var codes = {};
+  Object.keys(AIRLINE_CODES).forEach(function (c) { codes[c] = true; });
+  Object.keys(counts).forEach(function (c) { codes[c] = true; });
+  Object.keys(cells).forEach(function (c) { codes[c] = true; });
+
+  return Object.keys(codes).map(function (c) {
+    var raw = cells[c] || '';
+    var state = 'unset';
+    if (/^(data:|https?:)/.test(raw)) state = 'has';
+    else if (raw === AIRLINE_LOGO_NONE) state = 'none';
+
+    return {
+      code: c,
+      name: AIRLINE_CODES[c] || '',
+      flights: counts[c] || 0,
+      state: state
+    };
+  }).sort(function (a, b) {
+    // よく乗る会社を上に。32 社をコード順に並べても埋もれるだけ
+    if (a.flights !== b.flights) return b.flights - a.flights;
+    return a.code < b.code ? -1 : 1;
+  });
 }
 
 /**
@@ -219,7 +274,7 @@ function setAirlineLogo(code, action) {
 
   if (action === 'none') {
     setAirlineLogoValue_(c, AIRLINE_LOGO_NONE);
-    return { ok: true, code: c, hasLogo: false, logos: airlineLogos() };
+    return { ok: true, code: c, hasLogo: false, logos: airlineLogos(), airlines: airlineList() };
   }
 
   if (action === 'fetch') {
@@ -227,10 +282,10 @@ function setAirlineLogo(code, action) {
     if (!logo) {
       // 取れなかった。今の表示（コード）を保ったまま、次回また試せるよう空に戻す
       setAirlineLogoValue_(c, '');
-      return { ok: false, code: c, hasLogo: false, logos: airlineLogos() };
+      return { ok: false, code: c, hasLogo: false, logos: airlineLogos(), airlines: airlineList() };
     }
     setAirlineLogoValue_(c, logo);
-    return { ok: true, code: c, hasLogo: true, logos: airlineLogos() };
+    return { ok: true, code: c, hasLogo: true, logos: airlineLogos(), airlines: airlineList() };
   }
 
   throw new Error('不明な操作です: ' + action);

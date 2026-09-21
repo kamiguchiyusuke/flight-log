@@ -666,6 +666,61 @@
       outline-offset: 2px;
     }
 
+    /* 航空会社の一覧。台帳と同じ罫線・同じ桁でそろえる */
+    .ledger__head--airlines { grid-template-columns: 3.25rem minmax(0, 1fr) auto; }
+
+    .air {
+      display: grid;
+      grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+      gap: var(--space-sm);
+      align-items: center;
+      width: 100%;
+      appearance: none;
+      margin: 0;
+      padding-block: var(--space-sm);
+      border: 0;
+      border-bottom: var(--rule-hair) solid var(--color-rule);
+      background: none;
+      font: inherit;
+      color: inherit;
+      text-align: start;
+      cursor: pointer;
+    }
+
+    .air:focus-visible {
+      outline: var(--rule-firm) solid var(--color-focus);
+      outline-offset: -2px;
+    }
+
+    .air:active { opacity: .65; }
+
+    @media (hover: hover) and (pointer: fine) {
+      .air:hover .carrier,
+      .air:hover .carrier-logo { border-color: var(--color-accent); }
+    }
+
+    .air__name { display: block; font-size: var(--text-sm); font-weight: 600; }
+
+    .air__sub {
+      display: block;
+      font-family: var(--font-figure);
+      font-size: var(--text-xs);
+      letter-spacing: 0.08em;
+      color: var(--color-muted);
+    }
+
+    /* 「使わない」と明示した会社。未取得と区別が付かないと押す気になれない */
+    .air__sub--none { color: var(--color-accent-warm); }
+
+    .air__count {
+      font-family: var(--font-figure);
+      font-size: var(--text-sm);
+      color: var(--color-muted);
+      white-space: nowrap;
+    }
+
+    .air__count--zero { color: var(--color-rule-firm); }
+
     /* Ft2 · 繰越合計。台帳の頁末にある行をそのまま機能させる */
     .colophon {
       display: flex;
@@ -767,6 +822,8 @@
               aria-controls="panel-input" data-panel="panel-input">記入</button>
       <button type="button" class="tab" id="tab-log" role="tab" aria-selected="false"
               aria-controls="panel-log" data-panel="panel-log">台帳<span class="tab__count" id="tabCount"></span></button>
+      <button type="button" class="tab" id="tab-airlines" role="tab" aria-selected="false"
+              aria-controls="panel-airlines" data-panel="panel-airlines">航空会社</button>
     </nav>
 
     <section id="panel-input" class="panel" data-active="true" role="tabpanel" aria-labelledby="tab-input">
@@ -850,6 +907,14 @@
       <footer class="colophon" id="colophon"></footer>
     </section>
 
+    <section id="panel-airlines" class="panel" role="tabpanel" aria-labelledby="tab-airlines">
+      <p class="tally">タップでロゴを取得・取消</p>
+      <div class="ledger__head ledger__head--airlines" aria-hidden="true">
+        <span></span><span>CARRIER</span><span>FLIGHTS</span>
+      </div>
+      <div id="airlineList"><p class="empty">読み込み中…</p></div>
+    </section>
+
   </div>
 
   <div id="suggest" class="suggest"></div>
@@ -892,6 +957,7 @@
         renderSuggestions(data.suggestions);
         renderLogos(data.logos);
         renderLog(data.log);
+        renderAirlines(data.airlines);
       })
       .withFailureHandler(function (err) {
         $('ledger').innerHTML = '<p class="empty">読み込みに失敗しました</p>';
@@ -1068,6 +1134,7 @@
           setSaving(false);
           renderLogos(res.logos);
           renderLog(res.log);
+          renderAirlines(res.airlines);
           renderSuggestions(res.suggestions);
           toast(res.registration + ' · ' + res.timesFlown + '回目として' +
             (res.edited ? '直しました' : '記入しました'));
@@ -1395,6 +1462,8 @@
     /**
      * ロゴの入切。押すたびに「外す」と「取り直す」が入れ替わるので、
      * 確認ダイアログも取り消しボタンも要らない。もう一度押せば戻る。
+     *
+     * 台帳の印からも航空会社タブの行からも同じ属性で呼べるようにしてある。
      */
     function toggleLogo(btn) {
       var code = btn.getAttribute('data-carrier');
@@ -1407,6 +1476,7 @@
         .withSuccessHandler(function (res) {
           renderLogos(res.logos);
           renderLog(logRows);
+          renderAirlines(res.airlines);
           if (had) toast(code + ' のロゴを外しました。もう一度押すと取り直します');
           else if (res.hasLogo) toast(code + ' のロゴを取得しました');
           else toast(code + ' のロゴを取得できませんでした', true);
@@ -1414,6 +1484,48 @@
         .withFailureHandler(function (err) { toast(errorText(err), true); })
         .setAirlineLogo(code, had ? 'none' : 'fetch');
     }
+
+    /* ---------- 航空会社の一覧 ---------- */
+
+    /*
+     * 画像そのものはここへ届かない。state（has / none / unset）だけ受け取り、
+     * 実際の絵は台帳と同じ airlineLogoMap から引く。
+     * 32 社分の base64 を二重に持たないため。
+     */
+    function renderAirlines(rows) {
+      if (!rows) return;
+
+      $('airlineList').innerHTML = rows.map(function (a) {
+        var logo = airlineLogoMap[a.code];
+        var badge = logo
+          ? '<img class="carrier-logo" src="' + esc(logo) + '" alt="" width="24" height="24" loading="lazy">'
+          : '<span class="carrier">' + esc(a.code) + '</span>';
+
+        var sub = a.state === 'none'
+          ? '<span class="air__sub air__sub--none">' + esc(a.code) + ' · 使わない</span>'
+          : '<span class="air__sub">' + esc(a.code) + '</span>';
+
+        var count = a.flights
+          ? '<span class="air__count">' + a.flights + '便</span>'
+          : '<span class="air__count air__count--zero">—</span>';
+
+        return '<button type="button" class="air" data-carrier="' + esc(a.code) +
+          '" data-haslogo="' + (logo ? '1' : '') +
+          '" aria-label="' + esc(a.name || a.code) + 'のロゴを切り替える">' +
+          badge +
+          '<span>' +
+            '<span class="air__name">' + esc(a.name || '(コード表に無い会社)') + '</span>' +
+            sub +
+          '</span>' +
+          count +
+        '</button>';
+      }).join('');
+    }
+
+    $('airlineList').addEventListener('click', function (e) {
+      var btn = closestByClass(e.target, 'air');
+      if (btn) toggleLogo(btn);
+    });
 
     /* ---------- 入力候補 ---------- */
 
