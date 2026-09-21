@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>搭乗機材ログ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<!-- ホーム画面から開いたとき、Safari の枠を出さずに全画面で起動する -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="搭乗機材ログ">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b0f17">
+
+<!-- 検索避け。個人用の道具で、人に見つけてもらう必要がない -->
+<meta name="robots" content="noindex, nofollow">
+
+<style>
+  :root { color-scheme: dark; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #0b0f17;
+    color: #e6ecf5;
+    font-family: "IBM Plex Sans", "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    font-size: 16px;
+  }
+
+  /* アプリ本体。枠も余白も無しで画面いっぱいに置く */
+  #app {
+    display: block;
+    border: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* 初回だけ出る設定画面 */
+  #setup {
+    box-sizing: border-box;
+    max-width: 30rem;
+    margin-inline: auto;
+    padding: max(2rem, env(safe-area-inset-top)) 1.25rem 2rem;
+    line-height: 1.7;
+  }
+
+  #setup h1 {
+    margin: 0 0 .25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+  }
+
+  #setup p {
+    margin: 0 0 1.25rem;
+    font-size: .875rem;
+    color: #93a1b5;
+  }
+
+  #setup label {
+    display: block;
+    margin-bottom: .5rem;
+    font-size: .75rem;
+    letter-spacing: .14em;
+    color: #93a1b5;
+  }
+
+  #url {
+    box-sizing: border-box;
+    width: 100%;
+    padding: .75rem;
+    border: 1px solid #2b3648;
+    border-radius: 0;
+    background: #121926;
+    color: #e6ecf5;
+    /* 16px 未満にすると iOS でフォーカス時に勝手に拡大される */
+    font-size: 16px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  #url:focus { outline: 2px solid #4f7cd4; outline-offset: 2px; }
+
+  #go {
+    width: 100%;
+    margin-top: .75rem;
+    padding: .875rem;
+    border: 0;
+    border-radius: 0;
+    background: #e6ecf5;
+    color: #0b0f17;
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  #err {
+    margin-top: .75rem;
+    font-size: .875rem;
+    color: #ff8f8f;
+    min-height: 1.4em;
+  }
+
+  #setup small {
+    display: block;
+    margin-top: 2rem;
+    font-size: .75rem;
+    color: #6b7a91;
+  }
+
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+
+<!--
+  Google Apps Script のウェブアプリを、自分のページの中に iframe で開くだけの器。
+
+  なぜこれが要るのか
+    /exec を直接開くと Google が「このアプリケーションは Google Apps Script の
+    ユーザーによって作成されたものです」というバナーを上に出す。あれは自分の
+    HTML の外側にある Google のページが描いていて、オリジンが違うので
+    こちらの CSS も JS も届かない。最上位を自分のページにすれば経由しない。
+
+  なぜ URL をこのファイルに書かないのか
+    このページは GitHub Pages で公開される。アプリには認証が無く、URL を
+    知らないことだけが保護になっている。ここに書くと、辿り着いた誰もが
+    搭乗記録を消せてしまう。URL は端末側（# と localStorage）に置く。
+-->
+
+<iframe id="app" hidden title="搭乗機材ログ"
+        allow="clipboard-read; clipboard-write"></iframe>
+
+<main id="setup" hidden>
+  <h1>搭乗機材ログ</h1>
+  <p>初回だけ、アプリの URL を教えてください。この端末に保存され、次からは自動で開きます。</p>
+
+  <label for="url">ウェブアプリの URL</label>
+  <input id="url" type="url" inputmode="url" autocomplete="off"
+         autocapitalize="off" autocorrect="off" spellcheck="false"
+         placeholder="https://script.google.com/macros/s/.../exec">
+  <button id="go" type="button">開く</button>
+  <p id="err" role="status" aria-live="polite"></p>
+
+  <small>
+    Apps Script の「デプロイを管理」に出るウェブアプリ URL です。
+    このページ自体には URL を保存しません。
+  </small>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'flightLogExecUrl';
+
+  /*
+   * 受け付ける URL を Apps Script のウェブアプリだけに絞る。
+   * # の中身は他人から送りつけられる余地があるので、素通しにすると
+   * 偽のページを自分のドメインの中で開かせることができてしまう。
+   */
+  var VALID = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec(\?[^#]*)?$/;
+
+  var iframe = document.getElementById('app');
+  var setup = document.getElementById('setup');
+  var field = document.getElementById('url');
+  var err = document.getElementById('err');
+
+  function open_(url) {
+    iframe.src = url;
+    iframe.hidden = false;
+    setup.hidden = true;
+  }
+
+  function remember(url) {
+    try { localStorage.setItem(KEY, url); } catch (e) { /* 保存できなくても開ける */ }
+  }
+
+  function saved() {
+    try { return localStorage.getItem(KEY) || ''; } catch (e) { return ''; }
+  }
+
+  /*
+   * # を優先する。ホーム画面のショートカットに # 付きで入れておけば、
+   * Safari に保存を消されても開ける。# はあえて消さない
+   */
+  var fromHash = decodeURIComponent((location.hash || '').replace(/^#/, ''));
+
+  if (VALID.test(fromHash)) {
+    remember(fromHash);
+    open_(fromHash);
+    return;
+  }
+
+  var stored = saved();
+  if (VALID.test(stored)) {
+    open_(stored);
+    return;
+  }
+
+  // どちらも無ければ設定画面を出す
+  setup.hidden = false;
+  if (fromHash) err.textContent = 'この URL は Apps Script のウェブアプリではありません。';
+
+  function submit() {
+    var v = field.value.trim();
+    if (!VALID.test(v)) {
+      err.textContent = 'https://script.google.com/macros/s/… /exec の形で入れてください。';
+      field.focus();
+      return;
+    }
+    remember(v);
+    open_(v);
+  }
+
+  document.getElementById('go').addEventListener('click', submit);
+  field.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); submit(); }
+  });
+}());
+</script>
+</body>
+</html>

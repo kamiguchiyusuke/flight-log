@@ -12,7 +12,8 @@
 ## 構成
 
 ```
-docs/                 README 用のスクリーンショット
+docs/                 GitHub Pages で公開する器と、README 用の画像
+├── index.html        /exec を iframe で開くだけのページ（下記「バナーを消す」）
 src/
 ├── appsscript.json   マニフェスト（タイムゾーン・Drive API・ウェブアプリ設定）
 ├── Constants.js      シート名・列定義・航空会社/空港/機材型式の対照表
@@ -205,6 +206,58 @@ JAL グループなので妥当とも言えるが、気になるなら消す。
 
 各行には比を持たせた棒が付く。数を読まなくても多い少ないが分かる。
 航空会社は**コードで束ねる**ので、同じ会社を和名で書き分けても 1 社に寄る。
+
+### Google のバナーを消す
+
+`/exec` を直接開くと、Google が上に帯を出す。
+
+> このアプリケーションは Google Apps Script のユーザーによって作成されたものです
+
+あれは**自分の HTML の外側**にある Google のページが描いている。ウェブアプリは
+Google のページの中にサンドボックス化された iframe として置かれる構造で、
+バナーはその外側に属する。オリジンが違うので CSS も JS も届かず、
+Google 側にも消す設定は無い。
+
+最上位を自分のページにすれば、Google のラッパーを経由しないので出ない。
+`docs/index.html` がその器で、`/exec` を全画面の iframe で開くだけのもの。
+
+**設置**
+
+1. `doGet()` の `setXFrameOptionsMode(ALLOWALL)` が入った `Code.gs` を貼り、
+   デプロイを新しいバージョンで更新する。これが無いと既定の `SAMEORIGIN` で
+   弾かれ、iframe が真っ白になる
+2. GitHub の **Settings → Pages** で、Source を `Deploy from a branch`、
+   Branch を `main` / `/docs` にする
+3. 数分後 `https://<ユーザー名>.github.io/flight-log/` が開く
+4. **末尾に `#` とウェブアプリ URL を付けて一度だけ開く**
+
+```
+https://<ユーザー名>.github.io/flight-log/#https://script.google.com/macros/s/.../exec
+```
+
+以後はこの端末が覚えるので、`#` 無しでも開く。
+
+**なぜ URL をリポジトリに書かないか**
+
+このアプリには認証が無く、**URL を知らないことだけが保護**になっている。
+`docs/index.html` に URL を書くと、そのページは公開されるので、
+辿り着いた誰もが搭乗記録を追加・編集・削除できてしまう。記録は元に戻せない。
+
+そこで URL は端末側にだけ置く。`#` から受け取って `localStorage` に覚え、
+リポジトリにも公開ページにも残さない。`#` の中身は他人から送りつけられる
+余地があるので、`script.google.com/macros/s/…/exec` の形だけを通す。
+
+**ホーム画面に追加すると全画面で起動する**
+
+自分のページなので `apple-mobile-web-app-capable` を置いてある。iPhone で
+ホーム画面に追加すると、Safari のアドレスバーもタブバーも出ない。
+**追加するときは `#` 付きの URL のまま行うこと。** Safari が保存を消しても
+開けるようにするため。
+
+**引き換えになるもの**
+
+- `ALLOWALL` にすると、誰でもこのアプリを自分のサイトへ埋め込めるようになる
+- 経路が 1 つ増える。GitHub Pages が落ちるとアプリも開けない
 
 **記録の操作はすべてスマホで完結する。スプレッドシートを開く必要はない。**
 

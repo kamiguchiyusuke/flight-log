@@ -7,7 +7,19 @@ function doGet() {
   return HtmlService.createTemplateFromFile('index')
     .evaluate()
     .setTitle('搭乗機材ログ')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
+    /*
+     * 自分のページ（docs/index.html）の iframe に入れるために要る。
+     * 既定は SAMEORIGIN で、外部ページに埋め込むと真っ白になる。
+     *
+     * /exec を直接開くと Google が「このアプリケーションは Google Apps Script
+     * のユーザーによって作成されたものです」というバナーを上に出す。あれは
+     * 自分の HTML の外側にある Google のページが描いていて、オリジンが違うので
+     * こちらからは触れない。最上位を自分のページにすれば経由しない。
+     *
+     * 引き換えに、誰でもこのアプリを自分のサイトへ埋め込めるようになる。
+     */
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
 /**
